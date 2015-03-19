@@ -2,8 +2,9 @@ package main
 
 import "container/list"
 
-// Files are linked lists of byte arrays called "pages."
+// Files are linked lists of byte arrays.
 // This design should work well for TFTP, because all writes are appends and all reads are sequential.
+// If needed, we can make each page a multiple of the packet byte length.
 type File struct
 {
     Filename string

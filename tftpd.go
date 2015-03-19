@@ -1,6 +1,14 @@
 // TFTP Daemon
 // Implements RFC 1350, in octet mode only, over UDP and with files stored in memory only.
 
+// Architecture:
+// 
+// Packets from 'net -> UDPListener -> [PacketFormatter,
+//                                      SessionMap]
+//
+//              -> Channel for Session (guarantees serialized access to session)
+//              -> Action on packet -> 
+
 package main
 
 import (
@@ -11,12 +19,12 @@ import (
 
 const BufferSize = 512
 
-func Listen(host string, port uint16) {
+// Dispatches UDP packets indefinitely to receiver sessions.
+func Listen(host string, port uint16, sendChannel chan *WritablePacket) {
     addr := net.UDPAddr {
         Port: *listenPort,
         IP: net.ParseIP(*host),
     }
-    fmt.Printf("Server listening on %v\n", addr)
 
     conn, err := net.ListenUDP("udp", &addr)
     defer conn.Close()
@@ -24,14 +32,23 @@ func Listen(host string, port uint16) {
         panic(err)
     }
 
+    go Receive(conn)
+    go Send(conn, sendChannel)
+}
+
+func Receive(conn *net.UDPConn) {
     buffer := make([]byte, BufferSize)
     for {
         bytesRead, clientAddr, err := conn.ReadFromUDP(buffer)
-        fmt.Printf("Received %d bytes from addr %v and error %v.\n", bytesRead, clientAddr, err)
-        err = Dispatch(opcode, buffer)
-        if err != nil {
-            fmt.Printf("Error: %v\n", err)
-        }
+        packet := FormatPacket(buffer[0:bytesRead])
+    }
+}
+
+func Send(conn *net.UDPConn, sendChannel chan *WritablePacket) {
+    for {
+        packet <- sendChannel
+        data := packet.Format()
+        err := conn.WriteToUDP(data, addr)
     }
 }
 

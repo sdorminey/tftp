@@ -8,20 +8,26 @@ type Session struct
 {
 }
 
-func (s *Session) ProcessRrqPacket(packet *RequestPacket) {
-}
-
-func (s *Session) ProcessWrqPacket(packet *RequestPacket) {
-}
-
-func (s *Session) ProcessDataPacket(packet *DataPacket) {
+type PacketReceiver interface
+{
+    // Consume a received packet and emit a writable packet in response.
+    Receive(session Session) *WritablePacket
 }
 
 type SessionMap struct
 {
-    Sessions map[net.UDPAddr]Session
+    Channels map[net.UDPAddr]chan *Packet
 }
 
-func (s *SessionMap) GetSession(addr net.UDPAddr) Session {
-    return s.Sessions[addr]
+func ReceivePackets(channel chan *Packet) {
+}
+
+func (s *SessionMap) CreateSession(addr net.UDPAddr) {
+    channel := make(chan Packet)
+    go ReceivePackets(channel)
+}
+
+func (s *SessionMap) SendPacket(addr net.UDPAddr, packet *Packet) {
+    channel := s.Channels[addr]
+    channel <- packet
 }

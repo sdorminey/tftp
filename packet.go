@@ -1,3 +1,4 @@
+// Formats byte arrays into packets.
 package main
 
 const (
@@ -8,7 +9,7 @@ const (
     PKT_ERROR = 5
 )
 
-type RequestPacket struct
+type RequestInfo struct
 {
     Filename string
     Mode string
@@ -34,9 +35,7 @@ func ParseRequestPacket(data []byte) (*RequestPacket) {
 }
 
 func ParseDataPacket(data []byte) (*DataPacket) {
-    packet := DataPacket {
-        Block: data[
-    }
+    // Todo
 }
 
 func ExtractNullTerminatedString(data []byte) (string, error) {
@@ -53,24 +52,23 @@ func ConvertToUInt16(bytes []byte) uint16 {
     return uint16(buffer[0] << 8 | buffer[1])
 }
 
-// Dispatches packets.
-func Dispatch(data []byte) (error) {
-    if len(data) < 2 {
-        return fmt.Errorf("Not enough data.")
+// Formats the received packet payload into a Packet, which can be received by a session.
+func FormatPacket(data []byte) {
+    if len(data) <= 2 {
+        panic()
     }
     opcode := ConvertToUInt16(data[0:2])
+    payload := data[2:]
 
     switch opcode {
     case PKT_RRQ:
         fallthrough
     case PKT_WRQ:
-        packet, err := ParseRequestPacket(data[2:])
-        if err != nil {
-            return err
-        }
-        fmt.Println(packet)
+        return ParseRequestPacket(payload)
+    case PKT_DATA:
+        return ParseDataPacket(payload)
     default:
-        return fmt.Errorf("Unrecognized opcode %d", opcode)
+        panic()
     }
 
     return nil
