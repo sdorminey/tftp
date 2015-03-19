@@ -4,40 +4,43 @@ package main
 
 import "net"
 
+type SessionKey struct {
+    Host string
+    Port int
+}
+
 // One session per UDP addr.
-type Session struct
-{
+type Session struct {
 }
 
-func (s *Session) ProcessRrq(packet RequestPacket) *Packet {
-    panic()
+func (s *Session) ProcessRrq(packet *RequestPacket) *ReplyPacket {
+    panic(0)
 }
 
-func (s *Session) ProcessWrq(packet RequestPacket) *Packet {
-    panic()
+func (s *Session) ProcessWrq(packet *RequestPacket) *ReplyPacket {
+    panic(0)
 }
 
-func (s *Session) ProcessData(packet DataPacket) *Packet {
-    panic()
+func (s *Session) ProcessData(packet *DataPacket) *ReplyPacket {
+    panic(0)
 }
 
-func (s *Session) ProcessAck(packet AckPacket) *Packet {
-    panic()
+func (s *Session) ProcessAck(packet *AckPacket) *ReplyPacket {
+    panic(0)
 }
 
-func (s *Session) ProcessError(packet ErrorPacket) *Packet {
-    panic()
+func (s *Session) ProcessError(packet *ErrorPacket) *ReplyPacket {
+    panic(0)
 }
 
-type SessionDispatcher struct
-{
-    Session map[net.UDPAddr]Session
+type SessionDispatcher struct {
+    Session map[SessionKey]*Session
 }
 
-func (s *SessionDispatcher) Dispatch(uint16 opcode, []byte payload, addr net.UDPAddr) *Packet {
-    session := s.Session[addr]
+func (s *SessionDispatcher) Dispatch(opcode uint16, payload []byte, addr *net.UDPAddr) *ReplyPacket {
+    session := s.Session[SessionKey{string(addr.IP), addr.Port}]
     if session != nil {
-        panic()
+        panic(0)
     }
 
     switch opcode {
@@ -52,6 +55,6 @@ func (s *SessionDispatcher) Dispatch(uint16 opcode, []byte payload, addr net.UDP
     case PKT_ERROR:
         return session.ProcessError(ParseErrorPacket(payload))
     default:
-        panic()
+        panic(0)
     }
 }

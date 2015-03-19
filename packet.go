@@ -9,6 +9,10 @@ const (
     PKT_ERROR = 5
 )
 
+type ReplyPacket interface {
+    Write() []byte
+}
+
 type RequestPacket struct {
     Filename string
     Mode string
@@ -19,13 +23,25 @@ type DataPacket struct {
     Data []byte
 }
 
+func (p *DataPacket) Write() {
+    panic(0)
+}
+
 type AckPacket struct {
     Block uint16
+}
+
+func (p *AckPacket) Write() {
+    panic(0)
 }
 
 type ErrorPacket struct {
     ErrorCode uint16
     ErrMsg string
+}
+
+func (p *ErrorPacket) Write() {
+    panic(0)
 }
 
 func ParseRequestPacket(data []byte) *RequestPacket {
@@ -51,29 +67,29 @@ func ParseDataPacket(data []byte) *DataPacket {
 
 func ParseAckPacket(data []byte) *AckPacket {
     packet := AckPacket {
-        Block: ConvertToUInt16(data[0:2])
+        Block: ConvertToUInt16(data[0:2]),
     }
     return &packet
 }
 
 func ParseErrorPacket(data []byte) *ErrorPacket {
     packet := ErrorPacket {
-        ErrorCode: ConvertToUInt16(data[0:2])
-        ErrMsg: string(data[2:])
+        ErrorCode: ConvertToUInt16(data[0:2]),
+        ErrMsg: string(data[2:]),
     }
     return &packet
 }
 
-func ExtractNullTerminatedString(data []byte) (string, error) {
+func ExtractNullTerminatedString(data []byte) string {
     for index, value := range data {
         if value == 0 {
-            return string(data[0:index]), nil
+            return string(data[0:index])
         }
     }
 
-    panic()
+    panic(0)
 }
 
-func ConvertToUInt16(bytes []byte) uint16 {
+func ConvertToUInt16(buffer []byte) uint16 {
     return uint16(buffer[0] << 8 | buffer[1])
 }
