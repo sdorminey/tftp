@@ -17,10 +17,15 @@ import (
     "net"
 )
 
+type SendRequest struct {
+    Packet *Packet
+    Addr *net.UDPAddr
+}
+
 const BufferSize = 512
 
-// Dispatches UDP packets indefinitely to receiver sessions.
-func Listen(host string, port uint16, sendChannel chan *WritablePacket) {
+// Dispatches UDP packets indefinitely to sessions.
+func Listen(host string, port uint16, dispatcher SessionDispatcher) {
     addr := net.UDPAddr {
         Port: *listenPort,
         IP: net.ParseIP(*host),
@@ -32,23 +37,29 @@ func Listen(host string, port uint16, sendChannel chan *WritablePacket) {
         panic(err)
     }
 
-    go Receive(conn)
+    sendChannel := make(chan *WritablePacket)
     go Send(conn, sendChannel)
-}
 
-func Receive(conn *net.UDPConn) {
     buffer := make([]byte, BufferSize)
     for {
         bytesRead, clientAddr, err := conn.ReadFromUDP(buffer)
-        packet := FormatPacket(buffer[0:bytesRead])
+        opcode, packet := FormatPacket(buffer[0:bytesRead])
+
+        replyPacket := dispatcher.Dispatch(opcode, packet)
+
+        // Push sending the reply to a separate goroutine so that it doesn't block reads.
+        sendChannel <- SendRequest {
+            Packet: replyPacket,
+            Addr: clientAddr,
+        }
     }
 }
 
-func Send(conn *net.UDPConn, sendChannel chan *WritablePacket) {
+func Send(conn *net.UDPConn, sendChannel chan *SendRequest) {
     for {
-        packet <- sendChannel
-        data := packet.Format()
-        err := conn.WriteToUDP(data, addr)
+        request <- sendChannel
+        data := request.Packet.Format()
+        err := conn.WriteToUDP(data, request.Addr)
     }
 }
 
@@ -57,5 +68,6 @@ func main() {
     host := flag.String("host", "127.0.0.1", "host address to listen on.")
     flag.Parse()
 
-    Listen(host, listenPort)
+    SessionDispatcher dispatcher
+    Listen(host, listenPort, dispatcher)
 }

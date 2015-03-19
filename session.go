@@ -4,30 +4,54 @@ package main
 
 import "net"
 
+// One session per UDP addr.
 type Session struct
 {
 }
 
-type PacketReceiver interface
+func (s *Session) ProcessRrq(packet RequestPacket) *Packet {
+    panic()
+}
+
+func (s *Session) ProcessWrq(packet RequestPacket) *Packet {
+    panic()
+}
+
+func (s *Session) ProcessData(packet DataPacket) *Packet {
+    panic()
+}
+
+func (s *Session) ProcessAck(packet AckPacket) *Packet {
+    panic()
+}
+
+func (s *Session) ProcessError(packet ErrorPacket) *Packet {
+    panic()
+}
+
+type SessionDispatcher struct
 {
-    // Consume a received packet and emit a writable packet in response.
-    Receive(session Session) *WritablePacket
+    Session map[net.UDPAddr]Session
 }
 
-type SessionMap struct
-{
-    Channels map[net.UDPAddr]chan *Packet
-}
+func (s *SessionDispatcher) Dispatch(uint16 opcode, []byte payload, addr net.UDPAddr) *Packet {
+    session := s.Session[addr]
+    if session != nil {
+        panic()
+    }
 
-func ReceivePackets(channel chan *Packet) {
-}
-
-func (s *SessionMap) CreateSession(addr net.UDPAddr) {
-    channel := make(chan Packet)
-    go ReceivePackets(channel)
-}
-
-func (s *SessionMap) SendPacket(addr net.UDPAddr, packet *Packet) {
-    channel := s.Channels[addr]
-    channel <- packet
+    switch opcode {
+    case PKT_RRQ:
+        return session.ProcessRrq(ParseRequestPacket(payload))
+    case PKT_WRQ:
+        return session.ProcessWrq(ParseRequestPacket(payload))
+    case PKT_DATA:
+        return session.ProcessData(ParseDataPacket(payload))
+    case PKT_ACK:
+        return session.ProcessAck(ParseAckPacket(payload))
+    case PKT_ERROR:
+        return session.ProcessError(ParseErrorPacket(payload))
+    default:
+        panic()
+    }
 }

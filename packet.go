@@ -9,19 +9,26 @@ const (
     PKT_ERROR = 5
 )
 
-type RequestInfo struct
-{
+type RequestPacket struct {
     Filename string
     Mode string
 }
 
-type DataPacket struct
-{
+type DataPacket struct {
     Block uint16
     Data []byte
 }
 
-func ParseRequestPacket(data []byte) (*RequestPacket) {
+type AckPacket struct {
+    Block uint16
+}
+
+type ErrorPacket struct {
+    ErrorCode uint16
+    ErrMsg string
+}
+
+func ParseRequestPacket(data []byte) *RequestPacket {
     filename := ExtractNullTerminatedString(data[0:])
 
     modeStartIndex := 1 + len(filename)
@@ -34,8 +41,27 @@ func ParseRequestPacket(data []byte) (*RequestPacket) {
     return &packet
 }
 
-func ParseDataPacket(data []byte) (*DataPacket) {
-    // Todo
+func ParseDataPacket(data []byte) *DataPacket {
+    packet := DataPacket {
+        Block: ConvertToUInt16(data[0:2]),
+        Data: data[2:],
+    }
+    return &packet
+}
+
+func ParseAckPacket(data []byte) *AckPacket {
+    packet := AckPacket {
+        Block: ConvertToUInt16(data[0:2])
+    }
+    return &packet
+}
+
+func ParseErrorPacket(data []byte) *ErrorPacket {
+    packet := ErrorPacket {
+        ErrorCode: ConvertToUInt16(data[0:2])
+        ErrMsg: string(data[2:])
+    }
+    return &packet
 }
 
 func ExtractNullTerminatedString(data []byte) (string, error) {
@@ -50,26 +76,4 @@ func ExtractNullTerminatedString(data []byte) (string, error) {
 
 func ConvertToUInt16(bytes []byte) uint16 {
     return uint16(buffer[0] << 8 | buffer[1])
-}
-
-// Formats the received packet payload into a Packet, which can be received by a session.
-func FormatPacket(data []byte) {
-    if len(data) <= 2 {
-        panic()
-    }
-    opcode := ConvertToUInt16(data[0:2])
-    payload := data[2:]
-
-    switch opcode {
-    case PKT_RRQ:
-        fallthrough
-    case PKT_WRQ:
-        return ParseRequestPacket(payload)
-    case PKT_DATA:
-        return ParseDataPacket(payload)
-    default:
-        panic()
-    }
-
-    return nil
 }
