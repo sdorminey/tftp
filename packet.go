@@ -1,6 +1,8 @@
 // Formats byte arrays into packets.
 package main
 
+//import "fmt"
+
 const (
     PKT_RRQ = 1
     PKT_WRQ = 2
@@ -9,10 +11,20 @@ const (
     PKT_ERROR = 5
 )
 
-type ReplyPacket interface {
-    Write() []byte
+type PacketWriter interface {
+    Marshal() []byte
 }
 
+type PacketReader interface {
+    Unmarshal(data []byte)
+}
+
+type Packet interface {
+    PacketReader
+    PacketWriter
+}
+
+// Packet types.
 type RequestPacket struct {
     Filename string
     Mode string
@@ -23,63 +35,81 @@ type DataPacket struct {
     Data []byte
 }
 
-func (p *DataPacket) Write() {
-    panic(0)
-}
-
+//          2 bytes    2 bytes
+//          -------------------
+//   ACK   | 04    |   Block #  |
+//          --------------------
 type AckPacket struct {
     Block uint16
 }
 
-func (p *AckPacket) Write() {
-    panic(0)
-}
-
+//          2 bytes  2 bytes        string    1 byte
+//          ----------------------------------------
+//   ERROR | 05    |  ErrorCode |   ErrMsg   |   0  |
+//          ----------------------------------------
 type ErrorPacket struct {
+    //   Value     Meaning
+    //   0         Not defined, see error message (if any).
+    //   1         File not found.
+    //   2         Access violation.
+    //   3         Disk full or allocation exceeded.
+    //   4         Illegal TFTP operation.
+    //   5         Unknown transfer ID.
+    //   6         File already exists.
+    //   7         No such user.
     ErrorCode uint16
+
     ErrMsg string
 }
 
-func (p *ErrorPacket) Write() {
+// PacketWriter implementation:
+func (p *RequestPacket) Marshal() []byte {
     panic(0)
 }
 
-func ParseRequestPacket(data []byte) *RequestPacket {
+func (p *DataPacket) Marshal() []byte {
+    panic(0)
+}
+
+func (p *AckPacket) Marshal() []byte {
+    converted := ConvertFromUInt16(p.Block)
+    return []byte{0x00, PKT_ACK, converted[0], converted[1]}
+}
+
+func (p *ErrorPacket) Marshal() []byte {
+    result := make([]byte, 2 + 2 + 1 + len(p.ErrMsg))
+    result[1] = PKT_ERROR
+    copy(result[2:4], ConvertFromUInt16(p.ErrorCode))
+    copy(result[4:], []byte(p.ErrMsg[:]))
+    return result
+}
+
+// PacketReader implementation:
+func (p *RequestPacket) Unmarshal(data []byte) {
     filename := ExtractNullTerminatedString(data[0:])
 
     modeStartIndex := 1 + len(filename)
     mode := ExtractNullTerminatedString(data[modeStartIndex:])
 
-    packet := RequestPacket {
-        Filename: filename,
-        Mode: mode,
-    }
-    return &packet
+    p.Filename = filename
+    p.Mode = mode
 }
 
-func ParseDataPacket(data []byte) *DataPacket {
-    packet := DataPacket {
-        Block: ConvertToUInt16(data[0:2]),
-        Data: data[2:],
-    }
-    return &packet
+func (p *DataPacket) Unmarshal(data []byte) {
+    p.Block = ConvertToUInt16(data[0:2])
+    p.Data = data[2:]
 }
 
-func ParseAckPacket(data []byte) *AckPacket {
-    packet := AckPacket {
-        Block: ConvertToUInt16(data[0:2]),
-    }
-    return &packet
+func (p *AckPacket) Unmarshal(data []byte) {
+    p.Block = ConvertToUInt16(data[2:4])
 }
 
-func ParseErrorPacket(data []byte) *ErrorPacket {
-    packet := ErrorPacket {
-        ErrorCode: ConvertToUInt16(data[0:2]),
-        ErrMsg: string(data[2:]),
-    }
-    return &packet
+func (p *ErrorPacket) Unmarshal(data []byte) {
+    p.ErrorCode = ConvertToUInt16(data[0:2])
+    p.ErrMsg = string(data[2:])
 }
 
+// Conversion helper methods:
 func ExtractNullTerminatedString(data []byte) string {
     for index, value := range data {
         if value == 0 {
@@ -91,5 +121,9 @@ func ExtractNullTerminatedString(data []byte) string {
 }
 
 func ConvertToUInt16(buffer []byte) uint16 {
-    return uint16(buffer[0] << 8 | buffer[1])
+    return uint16(buffer[0]) << 8 | uint16(buffer[1])
+}
+
+func ConvertFromUInt16(value uint16) []byte {
+    return []byte{byte((value & 0xFF00) >> 8), byte(value & 0x00FF)}
 }

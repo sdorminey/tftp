@@ -1,5 +1,9 @@
 // Keeps track of sessions.
 // A session is created by a RRQ or a WRQ packet.
+
+// There are two types of sessions: ReadSession and WriteSession.
+// - WriteSession is established by a WRQ packet.
+//   It keeps track of the last block ID 
 package main
 
 import "net"
