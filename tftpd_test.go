@@ -17,11 +17,26 @@ type MarshalTestCase struct {
 }
 
 func TestPacketMarshalling(t *testing.T) {
+    // Opcodes are omitted. Those will be tested separately.
     tests := []MarshalTestCase {
-        {[]byte{0x00, 0x04, 0x00, 0x00}, &AckPacket{0}, &AckPacket{}},
-        {[]byte{0x00, 0x04, 0xFF, 0xFE}, &AckPacket{65534}, &AckPacket{}},
+        // Request
         {
-            []byte{0x00, 0x05, 0x00, 0x01, byte('h'), byte('i'), 0x00},
+            []byte{'f', 'o', 'o', 0, 'o', 'c', 't', 'a', 'l', 0},
+            &RequestPacket{"foo", "octal"},
+            &RequestPacket{},
+        },
+        // Data
+        {
+            []byte{0xFF, 0x0F, byte('h'), byte('i')},
+            &DataPacket{0xFF0F, []byte{byte('h'), byte('i')}},
+            &DataPacket{},
+        },
+        // Ack
+        {[]byte{0x00, 0x00}, &AckPacket{0}, &AckPacket{}},
+        {[]byte{0xFF, 0xFE}, &AckPacket{65534}, &AckPacket{}},
+        // Err
+        {
+            []byte{0x00, 0x01, byte('h'), byte('i'), 0x00},
             &ErrorPacket{1, "hi"},
             &ErrorPacket{},
         },

@@ -24,12 +24,19 @@ type Packet interface {
     PacketWriter
 }
 
-// Packet types.
+//          2 bytes    string   1 byte     string   1 byte
+//          -----------------------------------------------
+//   RRQ/  | 01/02 |  Filename  |   0  |    Mode    |   0  |
+//   WRQ    -----------------------------------------------
 type RequestPacket struct {
     Filename string
     Mode string
 }
 
+//          2 bytes    2 bytes       n bytes
+//          ---------------------------------
+//   DATA  | 03    |   Block #  |    Data    |
+//          ---------------------------------
 type DataPacket struct {
     Block uint16
     Data []byte
@@ -62,29 +69,14 @@ type ErrorPacket struct {
     ErrMsg string
 }
 
-// PacketWriter implementation:
+// Request Packet
 func (p *RequestPacket) Marshal() []byte {
-    panic(0)
-}
-
-func (p *DataPacket) Marshal() []byte {
-    panic(0)
-}
-
-func (p *AckPacket) Marshal() []byte {
-    converted := ConvertFromUInt16(p.Block)
-    return []byte{0x00, PKT_ACK, converted[0], converted[1]}
-}
-
-func (p *ErrorPacket) Marshal() []byte {
-    result := make([]byte, 2 + 2 + 1 + len(p.ErrMsg))
-    result[1] = PKT_ERROR
-    copy(result[2:4], ConvertFromUInt16(p.ErrorCode))
-    copy(result[4:], []byte(p.ErrMsg[:]))
+    result := make([]byte, len(p.Filename) + 1 + len(p.Mode) + 1)
+    copy(result[0:], p.Filename)
+    copy(result[len(p.Filename)+1:], p.Mode)
     return result
 }
 
-// PacketReader implementation:
 func (p *RequestPacket) Unmarshal(data []byte) {
     filename := ExtractNullTerminatedString(data[0:])
 
@@ -95,18 +87,39 @@ func (p *RequestPacket) Unmarshal(data []byte) {
     p.Mode = mode
 }
 
+// Data Packet
+func (p *DataPacket) Marshal() []byte {
+    result := make([]byte, 2 + len(p.Data))
+    copy(result[0:2], ConvertFromUInt16(p.Block))
+    copy(result[2:], p.Data)
+    return result
+}
+
 func (p *DataPacket) Unmarshal(data []byte) {
     p.Block = ConvertToUInt16(data[0:2])
     p.Data = data[2:]
 }
 
-func (p *AckPacket) Unmarshal(data []byte) {
-    p.Block = ConvertToUInt16(data[2:4])
+// Error Packet
+func (p *ErrorPacket) Marshal() []byte {
+    result := make([]byte, 2 + 1 + len(p.ErrMsg))
+    copy(result[0:2], ConvertFromUInt16(p.ErrorCode))
+    copy(result[2:], []byte(p.ErrMsg[:]))
+    return result
 }
 
 func (p *ErrorPacket) Unmarshal(data []byte) {
     p.ErrorCode = ConvertToUInt16(data[0:2])
-    p.ErrMsg = string(data[2:])
+    p.ErrMsg = ExtractNullTerminatedString(data[2:])
+}
+
+// Ack Packet
+func (p *AckPacket) Marshal() []byte {
+    return ConvertFromUInt16(p.Block)
+}
+
+func (p *AckPacket) Unmarshal(data []byte) {
+    p.Block = ConvertToUInt16(data[0:2])
 }
 
 // Conversion helper methods:
