@@ -14,12 +14,12 @@ func MakeFileSystem() *FileSystem {
 	}
 }
 
-func (f *FileSystem) CreateFile(filename string) *File {
+func (f *FileSystem) CreateFile(filename string) (*File, *ErrorPacket) {
 	if f.Files[filename] != nil {
-		panic(&ErrorPacket{ERR_FILE_ALREADY_EXISTS, ""})
+		return nil, &ErrorPacket{ERR_FILE_ALREADY_EXISTS, ""}
 	}
 
-	return &File{Filename: filename}
+	return &File{Filename: filename}, nil
 }
 
 func (f *FileSystem) GetReader(filename string) *FileReader {

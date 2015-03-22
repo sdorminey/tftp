@@ -31,11 +31,11 @@ func (s *WriteSession) ProcessRead(packet *ReadRequestPacket) Packet {
 }
 
 func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
-	if s.Writer != nil {
-		panic(fmt.Errorf("Should not be directly callable."))
-	}
-
-	s.Writer = s.Fs.CreateFile(packet.Filename)
+    var err *ErrorPacket
+	s.Writer, err = s.Fs.CreateFile(packet.Filename)
+    if err != nil {
+        return err
+    }
 	return &AckPacket{0}
 }
 
@@ -98,17 +98,17 @@ func MakeDataReply(s *ReadSession) Packet {
 }
 
 func Dispatch(s PacketHandler, packet Packet) Packet {
-	switch packet.(type) {
+    switch p := packet.(type) {
 	case *ReadRequestPacket:
-		return s.ProcessRead(packet.(*ReadRequestPacket))
+		return s.ProcessRead(p)
 	case *WriteRequestPacket:
-		return s.ProcessWrite(packet.(*WriteRequestPacket))
+		return s.ProcessWrite(p)
 	case *DataPacket:
-		return s.ProcessData(packet.(*DataPacket))
+		return s.ProcessData(p)
 	case *AckPacket:
-		return s.ProcessAck(packet.(*AckPacket))
+		return s.ProcessAck(p)
 	case *ErrorPacket:
-		return s.ProcessError(packet.(*ErrorPacket))
+		return s.ProcessError(p)
 	default:
 		panic(&ErrorPacket{ERR_ILLEGAL_OPERATION, "Unrecognized opcode."})
 	}
