@@ -16,6 +16,7 @@ type MarshalTestCase struct {
 	NewPacket  Packet
 }
 
+// Tests that packets are marshalled to and from binary correctly.
 func TestPacketMarshalling(t *testing.T) {
 	// Opcodes are omitted. Those will be tested separately.
 	tests := []MarshalTestCase{
@@ -66,24 +67,47 @@ func TestPacketMarshalling(t *testing.T) {
 	}
 }
 
-func TestSimpleWriteSession(t *testing.T) {
+func TestSimpleReadWriteSession(t *testing.T) {
 	test := []RequestReply{
 		{&WriteRequestPacket{RequestPacket{"foo", "octal"}}, &AckPacket{0}},
 		{&DataPacket{1, MakePaddedBytes("hello")}, &AckPacket{1}},
 		{&DataPacket{2, []byte("world!")}, &AckPacket{2}},
 	}
 
-	fs := MakeFileSystem()
-	var session WriteSession
-	session.Fs = fs
+    harness := TestHarness{t}
 
-	for k, exchange := range test {
-		t.Log("Exchange", k)
-		reply := Dispatch(&session, exchange.Request)
+	fs := MakeFileSystem()
+    ws := MakeWriteSession(fs)
+    rs := MakeReadSession(fs)
+
+    harness.RunExchanges(ws, test)
+
+    test = []RequestReply{
+        {
+            &ReadRequestPacket{RequestPacket{"foo", "octal"}},
+            &DataPacket{1, MakePaddedBytes("hello")},
+        },
+        {
+            &AckPacket{1},
+            &DataPacket{2, []byte("world!")},
+        },
+    }
+
+    harness.RunExchanges(rs, test)
+}
+
+type TestHarness struct {
+    t *testing.T
+}
+
+func (h *TestHarness) RunExchanges(session PacketHandler, exchanges []RequestReply) {
+	for k, exchange := range exchanges {
+		h.t.Log("Exchange", k)
+		reply := Dispatch(session, exchange.Request)
 		expectedReply := exchange.Reply
 
 		if !reflect.DeepEqual(expectedReply, reply) {
-			t.Fatal("Received unexpected reply.")
+			h.t.Fatal("Received unexpected reply.")
 		}
 	}
 }

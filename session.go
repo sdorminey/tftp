@@ -66,6 +66,10 @@ type ReadSession struct {
     Reader *FileReader
 }
 
+func MakeReadSession(fs *FileSystem) *ReadSession {
+    return &ReadSession{Fs: fs}
+}
+
 func (s *ReadSession) ProcessRead(packet *ReadRequestPacket) Packet {
     s.Reader = s.Fs.GetReader(packet.Filename)
     return MakeDataReply(s) // RRQ is acknowledged by sending DATA block 1.
