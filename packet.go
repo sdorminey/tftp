@@ -12,12 +12,12 @@ const (
 
 // Packet error codes:
 const (
-    ERR_UNDEFINED = iota,
-    ERR_FILE_NOT_FOUND = iota,
-    ERR_ACCESS_VIOLATION = iota,
-    ERR_DISK_FULL = iota,
-    ERR_ILLEGAL_OPERATION = iota,
-    ERR_FILE_ALREADY_EXISTS = iota,
+    ERR_UNDEFINED = iota
+    ERR_FILE_NOT_FOUND = iota
+    ERR_ACCESS_VIOLATION = iota
+    ERR_DISK_FULL = iota
+    ERR_ILLEGAL_OPERATION = iota
+    ERR_FILE_ALREADY_EXISTS = iota
     ERR_NO_SUCH_USER = iota
 )
 
@@ -44,11 +44,11 @@ type RequestPacket struct {
 }
 
 type ReadRequestPacket struct {
-    Request RequestPacket
+    RequestPacket
 }
 
 type WriteRequestPacket struct {
-    Request RequestPacket
+    RequestPacket
 }
 
 //          2 bytes    2 bytes       n bytes
@@ -90,7 +90,7 @@ type ErrorPacket struct {
 // Request Packet
 func (p *RequestPacket) Marshal() []byte {
     result := make([]byte, len(p.Filename) + 1 + len(p.Mode) + 1)
-    copy(result[0:], p.Filename)
+    copy(result, p.Filename)
     copy(result[len(p.Filename)+1:], p.Mode)
     return result
 }

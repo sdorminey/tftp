@@ -19,11 +19,17 @@ type MarshalTestCase struct {
 func TestPacketMarshalling(t *testing.T) {
     // Opcodes are omitted. Those will be tested separately.
     tests := []MarshalTestCase {
-        // Request
+        // Read Request
         {
             []byte{'f', 'o', 'o', 0, 'o', 'c', 't', 'a', 'l', 0},
-            &RequestPacket{"foo", "octal"},
-            &RequestPacket{},
+            &ReadRequestPacket{RequestPacket{"foo", "octal"}},
+            &ReadRequestPacket{},
+        },
+        // Write Request
+        {
+            []byte{'f', 'o', 'o', 0, 'o', 'c', 't', 'a', 'l', 0},
+            &WriteRequestPacket{RequestPacket{"foo", "octal"}},
+            &WriteRequestPacket{},
         },
         // Data
         {
@@ -62,9 +68,9 @@ func TestPacketMarshalling(t *testing.T) {
 
 func TestSimpleWriteSession(t *testing.T) {
     test := []RequestReply {
-        {&RequestPacket{"foo", "octal"}, &AckPacket{0}},
+        {&WriteRequestPacket{RequestPacket{"foo", "octal"}}, &AckPacket{0}},
         {&DataPacket{1, MakePaddedBytes("hello")}, &AckPacket{1}},
-        {&DataPacket{2, []byte("world!"[:])}, &AckPacket{2}},
+        {&DataPacket{2, []byte("world!")}, &AckPacket{2}},
     }
 
     var session Session

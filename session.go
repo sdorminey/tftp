@@ -17,9 +17,10 @@ type SessionKey struct {
 type Session struct {
 }
 
-func (s *Session) Dispatch(opcode uint16, p Packet) *Packet {
+func (s *Session) Dispatch(p Packet) *Packet {
     switch p.(type) {
-    case *RequestPacket:
+    case *ReadRequestPacket:
+    case *WriteRequestPacket:
     case *DataPacket:
     case *AckPacket:
     case *ErrorPacket:
