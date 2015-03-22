@@ -167,7 +167,7 @@ func MarshalPacket(packet Packet) []byte {
     copy(data[2:], marshalled)
     copy(data[0:2], ConvertFromUInt16(GetOpcode(packet)))
 
-    return data
+    return data[:2+len(marshalled)]
 }
 
 func GetOpcode(packet Packet) uint16 {

@@ -9,6 +9,14 @@ type ClientIdentity struct {
 
 type SessionLifecycle struct {
     Sessions map[ClientIdentity]PacketHandler
+    Fs *FileSystem
+}
+
+func MakeSessionLifecycle(fs *FileSystem) *SessionLifecycle {
+    lifecycle := new(SessionLifecycle)
+    lifecycle.Sessions = make(map[ClientIdentity]PacketHandler)
+    lifecycle.Fs = fs
+    return lifecycle
 }
 
 func (s *SessionLifecycle) ProcessPacket(addr ClientIdentity, data []byte) (reply []byte) {
@@ -56,7 +64,9 @@ func (s *SessionLifecycle) DispatchPacket(addr ClientIdentity, packet Packet) Pa
             if existingSession != nil {
                 panic(ErrorPacket{ERR_ILLEGAL_OPERATION, "WRQ in progress."})
             }
-            s.Sessions[addr] = new(WriteSession)
+            writeSession := new(WriteSession)
+            writeSession.Fs = s.Fs
+            s.Sessions[addr] = writeSession
         default:
             if existingSession == nil {
                 panic(ErrorPacket{ERR_ILLEGAL_OPERATION, "No session in progress for you."})

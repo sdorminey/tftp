@@ -41,6 +41,7 @@ func Listen(host string, port int, lifecycle *SessionLifecycle) {
     }
 }
 
+// Todo: strip out panics and use error.
 func main() {
     listenPort := flag.Int("port", 69, "port to listen on.")
     host := flag.String("host", "127.0.0.1", "host address to listen on.")
@@ -48,6 +49,7 @@ func main() {
 
     fmt.Printf("Listening on host %s, port %d\n", *host, *listenPort)
 
-    lifecycle := new(SessionLifecycle)
+    fs := MakeFileSystem()
+    lifecycle := MakeSessionLifecycle(fs)
     Listen(*host, *listenPort, lifecycle)
 }

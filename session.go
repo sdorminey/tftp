@@ -20,6 +20,10 @@ type WriteSession struct {
 	Writer *File
 }
 
+func MakeWriteSession(fs *FileSystem) *WriteSession {
+    return &WriteSession{ Fs: fs }
+}
+
 func (s *WriteSession) ProcessRead(packet *ReadRequestPacket) Packet {
 	panic(&ErrorPacket{ERR_ILLEGAL_OPERATION, "Attempted RRQ in write session."})
 }
