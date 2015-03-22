@@ -27,7 +27,7 @@ func MakeWriteSession(fs *FileSystem) *WriteSession {
 }
 
 func (s *WriteSession) ProcessRead(packet *ReadRequestPacket) Packet {
-	panic(&ErrorPacket{ERR_ILLEGAL_OPERATION, "Attempted RRQ in write session."})
+    panic(nil)
 }
 
 func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
