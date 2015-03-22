@@ -3,14 +3,14 @@
 
 // There are two types of sessions: ReadSession and WriteSession.
 // - WriteSession is established by a WRQ packet.
-//   It keeps track of the last block ID 
+//   It keeps track of the last block ID
 package main
 
 //import "net"
 
 type SessionKey struct {
-    Host string
-    Port int
+	Host string
+	Port int
 }
 
 // One session per UDP addr.
@@ -18,14 +18,14 @@ type Session struct {
 }
 
 func (s *Session) Dispatch(p Packet) *Packet {
-    switch p.(type) {
-    case *ReadRequestPacket:
-    case *WriteRequestPacket:
-    case *DataPacket:
-    case *AckPacket:
-    case *ErrorPacket:
-    default:
-        panic(0)
-    }
-    return nil
+	switch p.(type) {
+	case *ReadRequestPacket:
+	case *WriteRequestPacket:
+	case *DataPacket:
+	case *AckPacket:
+	case *ErrorPacket:
+	default:
+		panic(0)
+	}
+	return nil
 }
