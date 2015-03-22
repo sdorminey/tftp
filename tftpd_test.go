@@ -94,7 +94,3 @@ func MakePaddedBytes(text string) []byte {
 	copy(result, text[:])
 	return result
 }
-
-func main() {
-	// Temp
-}
