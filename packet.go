@@ -142,49 +142,49 @@ func (p *AckPacket) Unmarshal(data []byte) {
 	p.Block = ConvertToUInt16(data[0:2])
 }
 
-var packetTypes = map[uint16]func() Packet {
-    PKT_RRQ: func() Packet { return new(ReadRequestPacket) },
-    PKT_WRQ: func() Packet { return new(WriteRequestPacket) },
-    PKT_DATA: func() Packet { return new(DataPacket) },
-    PKT_ACK: func() Packet { return new(AckPacket) },
-    PKT_ERROR: func() Packet { return new(ErrorPacket) },
+var packetTypes = map[uint16]func() Packet{
+	PKT_RRQ:   func() Packet { return new(ReadRequestPacket) },
+	PKT_WRQ:   func() Packet { return new(WriteRequestPacket) },
+	PKT_DATA:  func() Packet { return new(DataPacket) },
+	PKT_ACK:   func() Packet { return new(AckPacket) },
+	PKT_ERROR: func() Packet { return new(ErrorPacket) },
 }
 
 // Factory methods
 func UnmarshalPacket(data []byte) Packet {
-    opcode := ConvertToUInt16(data[0:2])
-    payload := data[2:]
+	opcode := ConvertToUInt16(data[0:2])
+	payload := data[2:]
 
-    packet := packetTypes[opcode]()
-    packet.Unmarshal(payload)
+	packet := packetTypes[opcode]()
+	packet.Unmarshal(payload)
 
-    return packet
+	return packet
 }
 
 func MarshalPacket(packet Packet) []byte {
-    data := make([]byte, 512)
-    marshalled := packet.Marshal()
-    copy(data[2:], marshalled)
-    copy(data[0:2], ConvertFromUInt16(GetOpcode(packet)))
+	data := make([]byte, 512)
+	marshalled := packet.Marshal()
+	copy(data[2:], marshalled)
+	copy(data[0:2], ConvertFromUInt16(GetOpcode(packet)))
 
-    return data[:2+len(marshalled)]
+	return data[:2+len(marshalled)]
 }
 
 func GetOpcode(packet Packet) uint16 {
-    switch packet.(type) {
-    case *ReadRequestPacket:
-        return 1
-    case *WriteRequestPacket:
-        return 2
-    case *DataPacket:
-        return 3
-    case *AckPacket:
-        return 4
-    case *ErrorPacket:
-        return 5
-    }
+	switch packet.(type) {
+	case *ReadRequestPacket:
+		return 1
+	case *WriteRequestPacket:
+		return 2
+	case *DataPacket:
+		return 3
+	case *AckPacket:
+		return 4
+	case *ErrorPacket:
+		return 5
+	}
 
-    panic(fmt.Errorf("Unrecognized packet type %v", packet))
+	panic(fmt.Errorf("Unrecognized packet type %v", packet))
 }
 
 // Conversion helper methods:

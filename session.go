@@ -21,7 +21,7 @@ type WriteSession struct {
 }
 
 func MakeWriteSession(fs *FileSystem) *WriteSession {
-    return &WriteSession{ Fs: fs }
+	return &WriteSession{Fs: fs}
 }
 
 func (s *WriteSession) ProcessRead(packet *ReadRequestPacket) Packet {

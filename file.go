@@ -27,10 +27,10 @@ func (f *FileSystem) GetReader(filename string) *FileReader {
 		panic(&ErrorPacket{ERR_FILE_NOT_FOUND, ""})
 	}
 
-    file := f.Files[filename]
-    return &FileReader {
-        Current: file.Pages.Front(),
-    }
+	file := f.Files[filename]
+	return &FileReader{
+		Current: file.Pages.Front(),
+	}
 }
 
 func (f *FileSystem) Commit(file *File) {
@@ -38,16 +38,16 @@ func (f *FileSystem) Commit(file *File) {
 }
 
 type FileReader struct {
-    Current *list.Element
+	Current *list.Element
 }
 
 func (r *FileReader) ReadBlock() []byte {
-    result := r.Current.Value
-    return result.([]byte)
+	result := r.Current.Value
+	return result.([]byte)
 }
 
 func (r *FileReader) AdvanceBlock() {
-    r.Current = r.Current.Next()
+	r.Current = r.Current.Next()
 }
 
 // Files are linked lists of byte arrays.
