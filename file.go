@@ -2,8 +2,8 @@
 package main
 
 import (
-    "container/list"
-    "fmt"
+	"container/list"
+	"fmt"
 )
 
 // Accesses files.
@@ -32,7 +32,7 @@ func (f *FileSystem) GetReader(filename string) *FileReader {
 
 	file := f.Files[filename]
 	return &FileReader{
-        Block: 1,
+		Block:   1,
 		Current: file.Pages.Front(),
 	}
 }
@@ -42,23 +42,23 @@ func (f *FileSystem) Commit(file *File) {
 }
 
 type FileReader struct {
-    Block   uint16
+	Block   uint16
 	Current *list.Element
 }
 
 func (r *FileReader) ReadBlock() []byte {
 	result := r.Current.Value
-    fmt.Printf("Retrieved %v from data store\n", result)
+	fmt.Printf("Retrieved %v from data store\n", result)
 	return result.([]byte)
 }
 
 func (r *FileReader) AdvanceBlock() {
 	r.Current = r.Current.Next()
-    r.Block++
+	r.Block++
 }
 
 func (r *FileReader) AtEnd() bool {
-    return r.Current.Next() == nil
+	return r.Current.Next() == nil
 }
 
 // Files are linked lists of byte arrays.
@@ -73,9 +73,9 @@ type File struct {
 }
 
 func (f *File) Append(data []byte) {
-    page := make([]byte, len(data))
-    copy(page, data)
-    fmt.Printf("Added %v to data store\n", page)
+	page := make([]byte, len(data))
+	copy(page, data)
+	fmt.Printf("Added %v to data store\n", page)
 	f.Pages.PushBack(page)
 }
 

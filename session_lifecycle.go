@@ -20,30 +20,30 @@ func MakeSessionLifecycle(fs *FileSystem) *SessionLifecycle {
 }
 
 func (s *SessionLifecycle) ProcessPacket(addr ClientIdentity, data []byte) (reply []byte) {
-    fmt.Printf(
-        "Received %d packet with length %d\n",
-        ConvertToUInt16(data[0:2]),
-        len(data))
+	fmt.Printf(
+		"Received %d packet with length %d\n",
+		ConvertToUInt16(data[0:2]),
+		len(data))
 
 	packet := UnmarshalPacket(data)
 	replyPacket := s.DispatchPacket(addr, packet)
-    if replyPacket == nil {
-        // No response
-        return nil
-    }
+	if replyPacket == nil {
+		// No response
+		return nil
+	}
 
-    // Terminate session on ERROR returned.
-    _, hasError := replyPacket.(*ErrorPacket)
-    if hasError {
-        s.TerminateSession(addr)
-    }
+	// Terminate session on ERROR returned.
+	_, hasError := replyPacket.(*ErrorPacket)
+	if hasError {
+		s.TerminateSession(addr)
+	}
 
 	marshalled := MarshalPacket(replyPacket)
 
-    fmt.Printf(
-        "Sent %d packet with length %d",
-        ConvertToUInt16(marshalled[0:2]),
-        len(marshalled))
+	fmt.Printf(
+		"Sent %d packet with length %d",
+		ConvertToUInt16(marshalled[0:2]),
+		len(marshalled))
 
 	return marshalled
 }
@@ -56,8 +56,8 @@ func (s *SessionLifecycle) DispatchPacket(addr ClientIdentity, packet Packet) Pa
 		if existingSession != nil {
 			return &ErrorPacket{ERR_ILLEGAL_OPERATION, "RRQ in progress."}
 		}
-        readSession := MakeReadSession(s.Fs)
-        s.Sessions[addr] = readSession
+		readSession := MakeReadSession(s.Fs)
+		s.Sessions[addr] = readSession
 	case *WriteRequestPacket:
 		if existingSession != nil {
 			return &ErrorPacket{ERR_ILLEGAL_OPERATION, "WRQ in progress."}
@@ -75,9 +75,9 @@ func (s *SessionLifecycle) DispatchPacket(addr ClientIdentity, packet Packet) Pa
 	// If we've gotten this far we have a valid session, whether new or existing.
 	replyPacket := Dispatch(existingSession, packet)
 
-    if existingSession.WantsToDie() {
-        s.TerminateSession(addr)
-    }
+	if existingSession.WantsToDie() {
+		s.TerminateSession(addr)
+	}
 
 	return replyPacket
 }

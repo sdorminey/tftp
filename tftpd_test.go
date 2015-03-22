@@ -68,10 +68,10 @@ func TestPacketMarshalling(t *testing.T) {
 }
 
 func TestSimpleReadWriteSession(t *testing.T) {
-    harness := TestHarness{t}
+	harness := TestHarness{t}
 	fs := MakeFileSystem()
-    ws := MakeWriteSession(fs)
-    rs := MakeReadSession(fs)
+	ws := MakeWriteSession(fs)
+	rs := MakeReadSession(fs)
 
 	test := []RequestReply{
 		{&WriteRequestPacket{RequestPacket{"foo", "octal"}}, &AckPacket{0}},
@@ -79,24 +79,24 @@ func TestSimpleReadWriteSession(t *testing.T) {
 		{&DataPacket{2, []byte("world!")}, &AckPacket{2}},
 	}
 
-    harness.RunExchanges(ws, test)
+	harness.RunExchanges(ws, test)
 
-    test = []RequestReply{
-        {
-            &ReadRequestPacket{RequestPacket{"foo", "octal"}},
-            &DataPacket{1, MakePaddedBytes("hello")},
-        },
-        {
-            &AckPacket{1},
-            &DataPacket{2, []byte("world!")},
-        },
-    }
+	test = []RequestReply{
+		{
+			&ReadRequestPacket{RequestPacket{"foo", "octal"}},
+			&DataPacket{1, MakePaddedBytes("hello")},
+		},
+		{
+			&AckPacket{1},
+			&DataPacket{2, []byte("world!")},
+		},
+	}
 
-    harness.RunExchanges(rs, test)
+	harness.RunExchanges(rs, test)
 }
 
 type TestHarness struct {
-    t *testing.T
+	t *testing.T
 }
 
 func (h *TestHarness) RunExchanges(session PacketHandler, exchanges []RequestReply) {

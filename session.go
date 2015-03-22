@@ -14,37 +14,37 @@ type PacketHandler interface {
 	ProcessData(p *DataPacket) Packet
 	ProcessAck(p *AckPacket) Packet
 	ProcessError(p *ErrorPacket) Packet
-    WantsToDie() bool // Grim!
+	WantsToDie() bool // Grim!
 }
 
 type Session struct {
-    ShouldDie bool
-    Fs *FileSystem
+	ShouldDie bool
+	Fs        *FileSystem
 }
 
 type WriteSession struct {
-    Session
-    Writer *File
+	Session
+	Writer *File
 }
 
 func MakeWriteSession(fs *FileSystem) *WriteSession {
-    return &WriteSession{Session{false, fs}, nil}
+	return &WriteSession{Session{false, fs}, nil}
 }
 
 func (s *WriteSession) WantsToDie() bool {
-    return s.ShouldDie
+	return s.ShouldDie
 }
 
 func (s *WriteSession) ProcessRead(packet *ReadRequestPacket) Packet {
-    panic(nil)
+	panic(nil)
 }
 
 func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
-    var err *ErrorPacket
+	var err *ErrorPacket
 	s.Writer, err = s.Fs.CreateFile(packet.Filename)
-    if err != nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 	return &AckPacket{0}
 }
 
@@ -57,7 +57,7 @@ func (s *WriteSession) ProcessData(packet *DataPacket) Packet {
 
 	if len(packet.Data) < 512 {
 		s.Fs.Commit(s.Writer)
-        s.ShouldDie = true
+		s.ShouldDie = true
 	}
 
 	return &AckPacket{s.Writer.GetNumBlocks()}
@@ -68,29 +68,29 @@ func (s *WriteSession) ProcessAck(packet *AckPacket) Packet {
 }
 
 func (s *WriteSession) ProcessError(packet *ErrorPacket) Packet {
-    return nil
+	return nil
 }
 
 type ReadSession struct {
-    Session
-    Reader *FileReader
+	Session
+	Reader *FileReader
 }
 
 func MakeReadSession(fs *FileSystem) *ReadSession {
-    return &ReadSession{Session{false, fs}, nil}
+	return &ReadSession{Session{false, fs}, nil}
 }
 
 func (s *ReadSession) WantsToDie() bool {
-    return s.ShouldDie
+	return s.ShouldDie
 }
 
 func (s *ReadSession) ProcessRead(packet *ReadRequestPacket) Packet {
-    s.Reader = s.Fs.GetReader(packet.Filename)
-    return MakeDataReply(s) // RRQ is acknowledged by sending DATA block 1.
+	s.Reader = s.Fs.GetReader(packet.Filename)
+	return MakeDataReply(s) // RRQ is acknowledged by sending DATA block 1.
 }
 
 func (s *ReadSession) ProcessWrite(packet *WriteRequestPacket) Packet {
-    panic(fmt.Errorf("Shouldn't have gotten here"))
+	panic(fmt.Errorf("Shouldn't have gotten here"))
 }
 
 func (s *ReadSession) ProcessData(packet *DataPacket) Packet {
@@ -98,29 +98,29 @@ func (s *ReadSession) ProcessData(packet *DataPacket) Packet {
 }
 
 func (s *ReadSession) ProcessAck(packet *AckPacket) Packet {
-    if packet.Block == s.Reader.Block {
-        // Client has acknowledged the last block with an ACK.
-        // Now we can die happily.
-        if s.Reader.AtEnd() {
-            s.ShouldDie = true
-            return nil
-        }
-        s.Reader.AdvanceBlock()
-    }
+	if packet.Block == s.Reader.Block {
+		// Client has acknowledged the last block with an ACK.
+		// Now we can die happily.
+		if s.Reader.AtEnd() {
+			s.ShouldDie = true
+			return nil
+		}
+		s.Reader.AdvanceBlock()
+	}
 
-    return MakeDataReply(s)
+	return MakeDataReply(s)
 }
 
 func (s *ReadSession) ProcessError(packet *ErrorPacket) Packet {
-    return nil
+	return nil
 }
 
 func MakeDataReply(s *ReadSession) Packet {
-    return &DataPacket{s.Reader.Block, s.Reader.ReadBlock()}
+	return &DataPacket{s.Reader.Block, s.Reader.ReadBlock()}
 }
 
 func Dispatch(s PacketHandler, packet Packet) Packet {
-    switch p := packet.(type) {
+	switch p := packet.(type) {
 	case *ReadRequestPacket:
 		return s.ProcessRead(p)
 	case *WriteRequestPacket:

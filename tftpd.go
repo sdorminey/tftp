@@ -35,9 +35,9 @@ func Listen(host string, port int, lifecycle *SessionLifecycle) {
 		addr := ClientIdentity{clientAddr.IP.String(), clientAddr.Port}
 		dataToSend := lifecycle.ProcessPacket(addr, data)
 
-        if dataToSend != nil {
-            _, _ = conn.WriteToUDP(dataToSend, clientAddr) // Todo: log error
-        }
+		if dataToSend != nil {
+			_, _ = conn.WriteToUDP(dataToSend, clientAddr) // Todo: log error
+		}
 	}
 }
 
