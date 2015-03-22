@@ -73,10 +73,13 @@ func TestSimpleWriteSession(t *testing.T) {
 		{&DataPacket{2, []byte("world!")}, &AckPacket{2}},
 	}
 
-	var session Session
+    fs := MakeFileSystem()
+	var session WriteSession
+    session.Fs = fs
+
 	for k, exchange := range test {
 		t.Log("Exchange", k)
-		reply := session.Dispatch(exchange.Request)
+		reply := Dispatch(&session, exchange.Request)
 		expectedReply := exchange.Reply
 
 		if !reflect.DeepEqual(expectedReply, reply) {
