@@ -21,7 +21,7 @@ func MakeSessionLifecycle(fs *FileSystem) *SessionLifecycle {
 
 func (s *SessionLifecycle) ProcessPacket(addr ClientIdentity, data []byte) (reply []byte) {
     fmt.Printf(
-        "Received %d packet with length %d",
+        "Received %d packet with length %d\n",
         ConvertToUInt16(data[0:2]),
         len(data))
 
@@ -66,7 +66,7 @@ func (s *SessionLifecycle) DispatchPacket(addr ClientIdentity, packet Packet) Pa
 		s.Sessions[addr] = writeSession
 	default:
 		if existingSession == nil {
-			return &ErrorPacket{ERR_ILLEGAL_OPERATION, "Unknown session."}
+			return &ErrorPacket{ERR_ILLEGAL_OPERATION, "Unknown session!"}
 		}
 	}
 
@@ -74,6 +74,10 @@ func (s *SessionLifecycle) DispatchPacket(addr ClientIdentity, packet Packet) Pa
 
 	// If we've gotten this far we have a valid session, whether new or existing.
 	replyPacket := Dispatch(existingSession, packet)
+
+    if existingSession.WantsToDie() {
+        s.TerminateSession(addr)
+    }
 
 	return replyPacket
 }

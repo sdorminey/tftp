@@ -162,7 +162,7 @@ func UnmarshalPacket(data []byte) Packet {
 }
 
 func MarshalPacket(packet Packet) []byte {
-	data := make([]byte, 512)
+	data := make([]byte, 2048)
 	marshalled := packet.Marshal()
 	copy(data[2:], marshalled)
 	copy(data[0:2], ConvertFromUInt16(GetOpcode(packet)))

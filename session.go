@@ -57,6 +57,7 @@ func (s *WriteSession) ProcessData(packet *DataPacket) Packet {
 
 	if len(packet.Data) < 512 {
 		s.Fs.Commit(s.Writer)
+        s.ShouldDie = true
 	}
 
 	return &AckPacket{s.Writer.GetNumBlocks()}
@@ -98,9 +99,13 @@ func (s *ReadSession) ProcessData(packet *DataPacket) Packet {
 
 func (s *ReadSession) ProcessAck(packet *AckPacket) Packet {
     if packet.Block == s.Reader.Block {
+        // Client has acknowledged the last block with an ACK.
+        // Now we can die happily.
+        if s.Reader.AtEnd() {
+            s.ShouldDie = true
+            return nil
+        }
         s.Reader.AdvanceBlock()
-    } else {
-        panic(fmt.Errorf("Todo: implement"))
     }
 
     return MakeDataReply(s)
