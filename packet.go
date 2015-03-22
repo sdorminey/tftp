@@ -1,14 +1,24 @@
 // Formats byte arrays into packets.
 package main
 
-//import "fmt"
-
+// Packet opcodes:
 const (
     PKT_RRQ = 1
     PKT_WRQ = 2
     PKT_DATA = 3
     PKT_ACK = 4
     PKT_ERROR = 5
+)
+
+// Packet error codes:
+const (
+    ERR_UNDEFINED = iota,
+    ERR_FILE_NOT_FOUND = iota,
+    ERR_ACCESS_VIOLATION = iota,
+    ERR_DISK_FULL = iota,
+    ERR_ILLEGAL_OPERATION = iota,
+    ERR_FILE_ALREADY_EXISTS = iota,
+    ERR_NO_SUCH_USER = iota
 )
 
 type PacketWriter interface {
@@ -31,6 +41,14 @@ type Packet interface {
 type RequestPacket struct {
     Filename string
     Mode string
+}
+
+type ReadRequestPacket struct {
+    Request RequestPacket
+}
+
+type WriteRequestPacket struct {
+    Request RequestPacket
 }
 
 //          2 bytes    2 bytes       n bytes

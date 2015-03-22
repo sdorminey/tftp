@@ -67,7 +67,16 @@ func TestSimpleWriteSession(t *testing.T) {
         {&DataPacket{2, []byte("world!"[:])}, &AckPacket{2}},
     }
 
-    RunPacketExchangeTest(test)
+    var session Session
+    for k, exchange := range test {
+        t.Log("Exchange", k)
+        reply := session.Dispatch(exchange.Request)
+        expectedReply := exchange.Reply
+
+        if !reflect.DeepEqual(expectedReply, reply) {
+            t.Fatal("Received unexpected reply.")
+        }
+    }
 }
 
 // Make a 512-byte array out of the text, for testing.
@@ -75,9 +84,6 @@ func MakePaddedBytes(text string) []byte {
     result := make([]byte, 512)
     copy(result, text[:])
     return result
-}
-
-func RunPacketExchangeTest(exchanges []RequestReply) {
 }
 
 func main() {
