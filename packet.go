@@ -173,15 +173,15 @@ func MarshalPacket(packet Packet) []byte {
 func GetOpcode(packet Packet) uint16 {
     switch packet.(type) {
     case *ReadRequestPacket:
-        return 0
-    case *WriteRequestPacket:
         return 1
-    case *DataPacket:
+    case *WriteRequestPacket:
         return 2
-    case *AckPacket:
+    case *DataPacket:
         return 3
-    case *ErrorPacket:
+    case *AckPacket:
         return 4
+    case *ErrorPacket:
+        return 5
     }
 
     panic(fmt.Errorf("Unrecognized packet type %v", packet))

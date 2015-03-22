@@ -22,16 +22,32 @@ func (f *FileSystem) CreateFile(filename string) *File {
 	return &File{Filename: filename}
 }
 
-func (f *FileSystem) GetFile(filename string) *File {
+func (f *FileSystem) GetReader(filename string) *FileReader {
 	if f.Files[filename] == nil {
 		panic(&ErrorPacket{ERR_FILE_NOT_FOUND, ""})
 	}
 
-	return f.Files[filename]
+    file := f.Files[filename]
+    return &FileReader {
+        Current: file.Pages.Front(),
+    }
 }
 
 func (f *FileSystem) Commit(file *File) {
 	f.Files[file.Filename] = file
+}
+
+type FileReader struct {
+    Current *list.Element
+}
+
+func (r *FileReader) ReadBlock() []byte {
+    result := r.Current.Value
+    return result.([]byte)
+}
+
+func (r *FileReader) AdvanceBlock() {
+    r.Current = r.Current.Next()
 }
 
 // Files are linked lists of byte arrays.
