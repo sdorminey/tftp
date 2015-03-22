@@ -73,9 +73,9 @@ func TestSimpleWriteSession(t *testing.T) {
 		{&DataPacket{2, []byte("world!")}, &AckPacket{2}},
 	}
 
-    fs := MakeFileSystem()
+	fs := MakeFileSystem()
 	var session WriteSession
-    session.Fs = fs
+	session.Fs = fs
 
 	for k, exchange := range test {
 		t.Log("Exchange", k)
