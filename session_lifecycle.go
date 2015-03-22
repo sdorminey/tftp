@@ -20,33 +20,31 @@ func MakeSessionLifecycle(fs *FileSystem) *SessionLifecycle {
 }
 
 func (s *SessionLifecycle) ProcessPacket(addr ClientIdentity, data []byte) (reply []byte) {
-	defer func() {
-		// We recover any *ErrorPacket type of panic by terminating the session and
-		// forwarding the error to the caller.
-		if r := recover(); r != nil {
-			fmt.Println("Panic detected:", r)
-			switch r.(type) {
-			case *ErrorPacket:
-			default:
-				panic(r)
-			}
-
-			existingSession := s.Sessions[addr]
-			if existingSession != nil {
-				s.TerminateSession(addr)
-			}
-
-			packet := r.(*ErrorPacket)
-			reply = packet.Marshal()
-		}
-	}()
+    fmt.Printf(
+        "Received %d packet with length %d",
+        ConvertToUInt16(data[0:2]),
+        len(data))
 
 	packet := UnmarshalPacket(data)
-	fmt.Println("Unmarshalled received packet:", packet)
 	replyPacket := s.DispatchPacket(addr, packet)
-	fmt.Println("Reply packet:", replyPacket)
+    if replyPacket == nil {
+        // No response
+        return nil
+    }
+
+    // Terminate session on ERROR returned.
+    _, hasError := replyPacket.(*ErrorPacket)
+    if hasError {
+        s.TerminateSession(addr)
+    }
+
 	marshalled := MarshalPacket(replyPacket)
-	fmt.Println("Marshalled reply packet:", marshalled)
+
+    fmt.Printf(
+        "Sent %d packet with length %d",
+        ConvertToUInt16(marshalled[0:2]),
+        len(marshalled))
+
 	return marshalled
 }
 
@@ -56,19 +54,19 @@ func (s *SessionLifecycle) DispatchPacket(addr ClientIdentity, packet Packet) Pa
 	switch packet.(type) {
 	case *ReadRequestPacket:
 		if existingSession != nil {
-			panic(ErrorPacket{ERR_ILLEGAL_OPERATION, "RRQ in progress."})
+			return &ErrorPacket{ERR_ILLEGAL_OPERATION, "RRQ in progress."}
 		}
         readSession := MakeReadSession(s.Fs)
         s.Sessions[addr] = readSession
 	case *WriteRequestPacket:
 		if existingSession != nil {
-			panic(ErrorPacket{ERR_ILLEGAL_OPERATION, "WRQ in progress."})
+			return &ErrorPacket{ERR_ILLEGAL_OPERATION, "WRQ in progress."}
 		}
 		writeSession := MakeWriteSession(s.Fs)
 		s.Sessions[addr] = writeSession
 	default:
 		if existingSession == nil {
-			panic(ErrorPacket{ERR_ILLEGAL_OPERATION, "No session in progress for you."})
+			return &ErrorPacket{ERR_ILLEGAL_OPERATION, "Unknown session."}
 		}
 	}
 
@@ -77,7 +75,6 @@ func (s *SessionLifecycle) DispatchPacket(addr ClientIdentity, packet Packet) Pa
 	// If we've gotten this far we have a valid session, whether new or existing.
 	replyPacket := Dispatch(existingSession, packet)
 
-	fmt.Printf("%v -> %v\n", packet, replyPacket)
 	return replyPacket
 }
 

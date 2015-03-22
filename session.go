@@ -14,16 +14,25 @@ type PacketHandler interface {
 	ProcessData(p *DataPacket) Packet
 	ProcessAck(p *AckPacket) Packet
 	ProcessError(p *ErrorPacket) Packet
+    WantsToDie() bool // Grim!
 }
 
-// One session per UDP addr.
+type Session struct {
+    ShouldDie bool
+    Fs *FileSystem
+}
+
 type WriteSession struct {
-	Fs     *FileSystem
-	Writer *File
+    Session
+    Writer *File
 }
 
 func MakeWriteSession(fs *FileSystem) *WriteSession {
-	return &WriteSession{Fs: fs}
+    return &WriteSession{Session{false, fs}, nil}
+}
+
+func (s *WriteSession) WantsToDie() bool {
+    return s.ShouldDie
 }
 
 func (s *WriteSession) ProcessRead(packet *ReadRequestPacket) Packet {
@@ -62,12 +71,16 @@ func (s *WriteSession) ProcessError(packet *ErrorPacket) Packet {
 }
 
 type ReadSession struct {
-    Fs *FileSystem
+    Session
     Reader *FileReader
 }
 
 func MakeReadSession(fs *FileSystem) *ReadSession {
-    return &ReadSession{Fs: fs}
+    return &ReadSession{Session{false, fs}, nil}
+}
+
+func (s *ReadSession) WantsToDie() bool {
+    return s.ShouldDie
 }
 
 func (s *ReadSession) ProcessRead(packet *ReadRequestPacket) Packet {

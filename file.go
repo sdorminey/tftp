@@ -1,7 +1,10 @@
 // Todo: thread safety.
 package main
 
-import "container/list"
+import (
+    "container/list"
+    "fmt"
+)
 
 // Accesses files.
 type FileSystem struct {
@@ -45,6 +48,7 @@ type FileReader struct {
 
 func (r *FileReader) ReadBlock() []byte {
 	result := r.Current.Value
+    fmt.Printf("Retrieved %v from data store\n", result)
 	return result.([]byte)
 }
 
@@ -65,7 +69,10 @@ type File struct {
 }
 
 func (f *File) Append(data []byte) {
-	f.Pages.PushBack(data)
+    page := make([]byte, len(data))
+    copy(page, data)
+    fmt.Printf("Added %v to data store\n", page)
+	f.Pages.PushBack(page)
 }
 
 func (f *File) GetNumBlocks() uint16 {

@@ -35,7 +35,7 @@ func TestPacketMarshalling(t *testing.T) {
 		// Data
 		{
 			[]byte{0xFF, 0x0F, byte('h'), byte('i')},
-			&DataPacket{0xFF0F, []byte{byte('h'), byte('i')}},
+			&DataPacket{0xFF0F, []byte("hi")},
 			&DataPacket{},
 		},
 		// Ack
@@ -68,17 +68,16 @@ func TestPacketMarshalling(t *testing.T) {
 }
 
 func TestSimpleReadWriteSession(t *testing.T) {
+    harness := TestHarness{t}
+	fs := MakeFileSystem()
+    ws := MakeWriteSession(fs)
+    rs := MakeReadSession(fs)
+
 	test := []RequestReply{
 		{&WriteRequestPacket{RequestPacket{"foo", "octal"}}, &AckPacket{0}},
 		{&DataPacket{1, MakePaddedBytes("hello")}, &AckPacket{1}},
 		{&DataPacket{2, []byte("world!")}, &AckPacket{2}},
 	}
-
-    harness := TestHarness{t}
-
-	fs := MakeFileSystem()
-    ws := MakeWriteSession(fs)
-    rs := MakeReadSession(fs)
 
     harness.RunExchanges(ws, test)
 

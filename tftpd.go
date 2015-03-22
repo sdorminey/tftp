@@ -9,8 +9,6 @@ import (
 	"net"
 )
 
-const BufferSize = 512
-
 // Dispatches UDP packets indefinitely to sessions.
 func Listen(host string, port int, lifecycle *SessionLifecycle) {
 	addr := net.UDPAddr{
@@ -24,7 +22,7 @@ func Listen(host string, port int, lifecycle *SessionLifecycle) {
 		panic(err)
 	}
 
-	buffer := make([]byte, BufferSize)
+	buffer := make([]byte, 2048)
 	for {
 		bytesRead, clientAddr, _ := conn.ReadFromUDP(buffer)
 		data := buffer[:bytesRead]
@@ -37,7 +35,9 @@ func Listen(host string, port int, lifecycle *SessionLifecycle) {
 		addr := ClientIdentity{clientAddr.IP.String(), clientAddr.Port}
 		dataToSend := lifecycle.ProcessPacket(addr, data)
 
-		_, _ = conn.WriteToUDP(dataToSend, clientAddr) // Todo: log error
+        if dataToSend != nil {
+            _, _ = conn.WriteToUDP(dataToSend, clientAddr) // Todo: log error
+        }
 	}
 }
 
