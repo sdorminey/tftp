@@ -27,9 +27,15 @@ func Listen(host string, port int, lifecycle *SessionLifecycle) {
     buffer := make([]byte, BufferSize)
     for {
         bytesRead, clientAddr, _ := conn.ReadFromUDP(buffer)
+        data := buffer[:bytesRead]
+        fmt.Printf(
+            "Received %d bytes from client %v: %v\n",
+            bytesRead,
+            clientAddr,
+            data)
 
         addr := ClientIdentity { clientAddr.IP.String(), clientAddr.Port }
-        dataToSend := lifecycle.ProcessPacket(addr, buffer[:bytesRead])
+        dataToSend := lifecycle.ProcessPacket(addr, data)
 
         _, _ = conn.WriteToUDP(dataToSend, clientAddr) // Todo: log error
     }
@@ -40,7 +46,7 @@ func main() {
     host := flag.String("host", "127.0.0.1", "host address to listen on.")
     flag.Parse()
 
-    fmt.Printf("Listening on host %s, port %d", host, listenPort)
+    fmt.Printf("Listening on host %s, port %d\n", *host, *listenPort)
 
     lifecycle := new(SessionLifecycle)
     Listen(*host, *listenPort, lifecycle)

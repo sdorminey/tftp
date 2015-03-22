@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 type ClientIdentity struct {
     Host string
     Port int
@@ -14,23 +16,30 @@ func (s *SessionLifecycle) ProcessPacket(addr ClientIdentity, data []byte) (repl
         // We recover any *ErrorPacket type of panic by terminating the session and
         // forwarding the error to the caller.
         if r := recover(); r != nil {
+            fmt.Println("Panic detected:", r)
+            switch r.(type) {
+            case *ErrorPacket:
+            default:
+                panic(r)
+            }
+
             existingSession := s.Sessions[addr]
             if existingSession != nil {
-                switch r.(type) {
-                case *ErrorPacket:
-                    s.TerminateSession(addr)
-                    packet := r.(*ErrorPacket)
-                    reply = packet.Marshal()
-                default:
-                    panic(r)
-                }
+                s.TerminateSession(addr)
             }
+
+            packet := r.(*ErrorPacket)
+            reply = packet.Marshal()
         }
     }()
 
     packet := UnmarshalPacket(data)
+    fmt.Println("Unmarshalled received packet:", packet)
     replyPacket := s.DispatchPacket(addr, packet)
-    return MarshalPacket(replyPacket)
+    fmt.Println("Reply packet:", replyPacket)
+    marshalled := MarshalPacket(replyPacket)
+    fmt.Println("Marshalled reply packet:", marshalled)
+    return marshalled
 }
 
 func (s *SessionLifecycle) DispatchPacket(addr ClientIdentity, packet Packet) Packet {
@@ -57,7 +66,10 @@ func (s *SessionLifecycle) DispatchPacket(addr ClientIdentity, packet Packet) Pa
     existingSession = s.Sessions[addr]
 
     // If we've gotten this far we have a valid session, whether new or existing.
-    return Dispatch(existingSession, packet)
+    replyPacket := Dispatch(existingSession, packet)
+
+    fmt.Printf("%v -> %v\n", packet, replyPacket)
+    return replyPacket
 }
 
 func (s *SessionLifecycle) TerminateSession(addr ClientIdentity) {
