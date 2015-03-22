@@ -1,6 +1,8 @@
 // Formats byte arrays into packets.
 package main
 
+import "fmt"
+
 // Packet opcodes:
 const (
 	PKT_RRQ   = 1
@@ -138,6 +140,51 @@ func (p *AckPacket) Marshal() []byte {
 
 func (p *AckPacket) Unmarshal(data []byte) {
 	p.Block = ConvertToUInt16(data[0:2])
+}
+
+var packetTypes = map[uint16]func() Packet {
+    PKT_RRQ: func() Packet { return new(ReadRequestPacket) },
+    PKT_WRQ: func() Packet { return new(WriteRequestPacket) },
+    PKT_DATA: func() Packet { return new(DataPacket) },
+    PKT_ACK: func() Packet { return new(AckPacket) },
+    PKT_ERROR: func() Packet { return new(ErrorPacket) },
+}
+
+// Factory methods
+func UnmarshalPacket(data []byte) Packet {
+    opcode := ConvertToUInt16(data[0:2])
+    payload := data[2:]
+
+    packet := packetTypes[opcode]()
+    packet.Unmarshal(payload)
+
+    return packet
+}
+
+func MarshalPacket(packet Packet) []byte {
+    data := make([]byte, 512)
+    marshalled := packet.Marshal()
+    copy(data[2:], marshalled)
+    copy(data[0:2], ConvertFromUInt16(GetOpcode(packet)))
+
+    return data
+}
+
+func GetOpcode(packet Packet) uint16 {
+    switch packet.(type) {
+    case *ReadRequestPacket:
+        return 0
+    case *WriteRequestPacket:
+        return 1
+    case *DataPacket:
+        return 2
+    case *AckPacket:
+        return 3
+    case *ErrorPacket:
+        return 4
+    }
+
+    panic(fmt.Errorf("Unrecognized packet type %v", packet))
 }
 
 // Conversion helper methods:
