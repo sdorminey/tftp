@@ -6,6 +6,8 @@
 //   It keeps track of the last block ID
 package main
 
+import "fmt"
+
 type PacketHandler interface {
 	ProcessRead(p *ReadRequestPacket) Packet
 	ProcessWrite(p *WriteRequestPacket) Packet
@@ -30,7 +32,7 @@ func (s *WriteSession) ProcessRead(packet *ReadRequestPacket) Packet {
 
 func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
 	if s.Writer != nil {
-		panic(&ErrorPacket{ERR_ILLEGAL_OPERATION, "Attempted second WRQ."})
+		panic(fmt.Errorf("Should not be directly callable."))
 	}
 
 	s.Writer = s.Fs.CreateFile(packet.Filename)
@@ -56,7 +58,43 @@ func (s *WriteSession) ProcessAck(packet *AckPacket) Packet {
 }
 
 func (s *WriteSession) ProcessError(packet *ErrorPacket) Packet {
-	panic(nil) // Don't emit an error if we receive an ERROR packet.
+    return nil
+}
+
+type ReadSession struct {
+    Fs *FileSystem
+    Reader *FileReader
+}
+
+func (s *ReadSession) ProcessRead(packet *ReadRequestPacket) Packet {
+    s.Reader = s.Fs.GetReader(packet.Filename)
+    return MakeDataReply(s) // RRQ is acknowledged by sending DATA block 1.
+}
+
+func (s *ReadSession) ProcessWrite(packet *WriteRequestPacket) Packet {
+    panic(fmt.Errorf("Shouldn't have gotten here"))
+}
+
+func (s *ReadSession) ProcessData(packet *DataPacket) Packet {
+	panic(&ErrorPacket{ERR_ILLEGAL_OPERATION, "Unexpected DATA"})
+}
+
+func (s *ReadSession) ProcessAck(packet *AckPacket) Packet {
+    if packet.Block == s.Reader.Block {
+        s.Reader.AdvanceBlock()
+    } else {
+        panic(fmt.Errorf("Todo: implement"))
+    }
+
+    return MakeDataReply(s)
+}
+
+func (s *ReadSession) ProcessError(packet *ErrorPacket) Packet {
+    return nil
+}
+
+func MakeDataReply(s *ReadSession) Packet {
+    return &DataPacket{s.Reader.Block, s.Reader.ReadBlock()}
 }
 
 func Dispatch(s PacketHandler, packet Packet) Packet {

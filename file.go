@@ -29,6 +29,7 @@ func (f *FileSystem) GetReader(filename string) *FileReader {
 
 	file := f.Files[filename]
 	return &FileReader{
+        Block: 1,
 		Current: file.Pages.Front(),
 	}
 }
@@ -38,6 +39,7 @@ func (f *FileSystem) Commit(file *File) {
 }
 
 type FileReader struct {
+    Block   uint16
 	Current *list.Element
 }
 
@@ -48,6 +50,7 @@ func (r *FileReader) ReadBlock() []byte {
 
 func (r *FileReader) AdvanceBlock() {
 	r.Current = r.Current.Next()
+    r.Block++
 }
 
 // Files are linked lists of byte arrays.

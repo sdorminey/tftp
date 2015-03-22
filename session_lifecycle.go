@@ -58,8 +58,9 @@ func (s *SessionLifecycle) DispatchPacket(addr ClientIdentity, packet Packet) Pa
 		if existingSession != nil {
 			panic(ErrorPacket{ERR_ILLEGAL_OPERATION, "RRQ in progress."})
 		}
-		panic("Not implemented yet")
-		//s.Sessions[addr] = new(ReadSession)
+        readSession := new(ReadSession)
+        readSession.Fs = s.Fs
+        s.Sessions[addr] = readSession
 	case *WriteRequestPacket:
 		if existingSession != nil {
 			panic(ErrorPacket{ERR_ILLEGAL_OPERATION, "WRQ in progress."})
