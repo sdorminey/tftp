@@ -25,13 +25,8 @@ func Listen(host string, port int, lifecycle *SessionLifecycle) {
 	buffer := make([]byte, 2048)
 	for {
 		bytesRead, clientAddr, _ := conn.ReadFromUDP(buffer)
-		data := buffer[:bytesRead]
-		fmt.Printf(
-			"Received %d bytes from client %v: %v\n",
-			bytesRead,
-			clientAddr,
-			data)
 
+		data := buffer[:bytesRead]
 		addr := ClientIdentity{clientAddr.IP.String(), clientAddr.Port}
 		dataToSend := lifecycle.ProcessPacket(addr, data)
 
