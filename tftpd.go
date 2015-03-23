@@ -15,7 +15,7 @@ import (
 // serving host.  The response to the request, under normal operation,
 // uses a TID chosen by the server as its source TID and the TID chosen
 // for the previous message by the requestor as its destination TID.
-func RunConnection(raddr *net.UDPConn) {
+func RunConnection(raddr *net.UDPConn, firstPacket []byte) {
     // Choose a TID for the server for this connection.
     laddr := net.UDPAddr {
         Port: 0, // The OS will give us a port from the ephemeral pool.
@@ -27,6 +27,9 @@ func RunConnection(raddr *net.UDPConn) {
 	buffer := make([]byte, 768)
 
     conn, err := net.ListenUDP("udp", &laddr)
+    if err != nil {
+        return
+    }
     defer conn.Close()
     conn.SetTimeout(3 * time.Second)
 
@@ -60,10 +63,10 @@ func Listen(host string, port int, lifecycle *SessionLifecycle) {
 	}
 
 	conn, err := net.ListenUDP("udp", &addr)
-	defer conn.Close()
 	if err != nil {
 		panic(err)
 	}
+	defer conn.Close()
 
 	buffer := make([]byte, 768)
 	for {
@@ -74,13 +77,7 @@ func Listen(host string, port int, lifecycle *SessionLifecycle) {
 			bytesRead,
 			clientAddr,
 			data)
-
-		addr := ClientIdentity{clientAddr.IP.String(), clientAddr.Port}
-		dataToSend := lifecycle.ProcessPacket(addr, data)
-
-		if dataToSend != nil {
-			_, _ = conn.WriteToUDP(dataToSend, clientAddr) // Todo: log error
-		}
+        go RunConnection(data)
 	}
 }
 
