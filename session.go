@@ -3,6 +3,8 @@
 
 package main
 
+import "fmt"
+
 type SessionKiller interface {
 	WantsToDie() bool // Grim!
 	MakeWantToDie()
@@ -60,8 +62,11 @@ func (s *WriteSession) ProcessData(packet *DataPacket) Packet {
 	s.Writer.Append(packet.Data)
 
 	if len(packet.Data) < 512 {
-		s.Fs.Commit(s.Writer)
+        err := s.Fs.Commit(s.Writer)
 		s.ShouldDie = true
+        if err != nil {
+            return err
+        }
 	}
 
 	return &AckPacket{s.Writer.GetNumBlocks()}
@@ -138,7 +143,7 @@ func MakeErrorReply(errCode uint16, msg string) Packet {
 	return &ErrorPacket{errCode, msg}
 }
 
-func Dispatch(s PacketHandler, packet Packet) Packet {
+func DispatchInner(s PacketHandler, packet Packet) Packet {
 	switch p := packet.(type) {
 	case *ReadRequestPacket:
 		return s.ProcessRead(p)
@@ -151,22 +156,18 @@ func Dispatch(s PacketHandler, packet Packet) Packet {
 	case *ErrorPacket:
 		return s.ProcessError(p)
 	default:
-		panic(&ErrorPacket{ERR_ILLEGAL_OPERATION, "Unrecognized opcode."})
+        panic(fmt.Errorf("Unknown packet type."))
 	}
 }
 
-func ProcessPacket(s PacketHandler, requestPacket []byte) []byte {
+func Dispatch(s PacketHandler, packet Packet) Packet {
 	var reply Packet
 
-	unmarshalled, err := UnmarshalPacket(requestPacket)
-
-	if err != nil {
-		Log.Println("Error parsing packet", err)
-		reply = MakeErrorReply(ERR_ILLEGAL_OPERATION, err.Error())
-	} else {
-		Log.Println("Received", unmarshalled)
-		reply = Dispatch(s, unmarshalled)
-	}
+    if packet == nil {
+		reply = MakeErrorReply(ERR_ILLEGAL_OPERATION, "Error parsing packet")
+    } else {
+        reply = DispatchInner(s, packet)
+    }
 
 	// All ERROR responses destroy the session.
 	_, isError := reply.(*ErrorPacket)
@@ -174,11 +175,21 @@ func ProcessPacket(s PacketHandler, requestPacket []byte) []byte {
 		s.MakeWantToDie()
 	}
 
-	if reply == nil {
-		return nil
-	}
+    return reply
+}
+
+func ProcessPacket(s PacketHandler, requestPacket []byte) []byte {
+	var reply Packet
+
+	unmarshalled, _ := UnmarshalPacket(requestPacket)
+
+    Log.Println("Received", unmarshalled)
+
+    reply = Dispatch(s, unmarshalled)
 
 	Log.Println("Sent", reply)
+
 	marshalled := MarshalPacket(reply)
+
 	return marshalled
 }

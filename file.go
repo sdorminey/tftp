@@ -38,9 +38,14 @@ func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
 	}, nil
 }
 
-func (f *FileSystem) Commit(file *File) {
+func (f *FileSystem) Commit(file *File) *ErrorPacket {
+    if f.Files[file.Filename] != nil {
+        return &ErrorPacket{ERR_FILE_ALREADY_EXISTS, ""}
+    }
+
 	f.Files[file.Filename] = file
 	Log.Println("Added file", file.Filename)
+    return nil
 }
 
 type FileReader struct {
