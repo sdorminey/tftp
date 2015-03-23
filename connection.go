@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net"
 	"time"
 )
@@ -44,8 +43,11 @@ func (c *Connection) Listen() {
 			data := buffer[:bytesRead]
 			c.LastReplyPacket = ProcessPacket(c.Handler, data)
 		} else {
-			fmt.Println("Error: ", err)
-			return
+			Log.Println("Error: ", err)
+            opError, isOpError := err.(*net.OpError)
+            if !isOpError || !opError.Timeout() {
+                return
+            }
 		}
 	}
 }
@@ -113,17 +115,13 @@ func Listen(host string, port int, fs *FileSystem) {
 	for {
 		bytesRead, clientAddr, _ := conn.ReadFromUDP(buffer)
 		data := buffer[:bytesRead]
-		fmt.Printf(
-			"Received %d bytes from client %v: %v\n",
-			bytesRead,
-			clientAddr,
-			data)
+        Log.Println("Created connection for remote host", clientAddr)
 
 		c, err := MakeConnection(clientAddr, data, fs)
 		if err == nil {
 			go c.Listen()
 		} else {
-			fmt.Println("Error creating connection:", err)
+			Log.Println("Error creating connection:", err)
 		}
 	}
 }

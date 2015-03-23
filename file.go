@@ -1,10 +1,7 @@
 // Todo: thread safety.
 package main
 
-import (
-	"container/list"
-	"fmt"
-)
+import "container/list"
 
 // Accesses files.
 type FileSystem struct {
@@ -31,6 +28,7 @@ func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
 	}
 
 	file := f.Files[filename]
+    Log.Println("Began reading file", filename)
 	return &FileReader{
 		Block:   1,
 		Current: file.Pages.Front(),
@@ -39,6 +37,7 @@ func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
 
 func (f *FileSystem) Commit(file *File) {
 	f.Files[file.Filename] = file
+    Log.Println("Added file", file.Filename)
 }
 
 type FileReader struct {
@@ -48,7 +47,6 @@ type FileReader struct {
 
 func (r *FileReader) ReadBlock() []byte {
 	result := r.Current.Value
-	fmt.Printf("Retrieved %v from data store\n", result)
 	return result.([]byte)
 }
 
@@ -75,7 +73,6 @@ type File struct {
 func (f *File) Append(data []byte) {
 	page := make([]byte, len(data))
 	copy(page, data)
-	fmt.Printf("Added %v to data store\n", page)
 	f.Pages.PushBack(page)
 }
 

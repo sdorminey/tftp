@@ -1,10 +1,12 @@
 // Keeps track of sessions.
 // A session is created by a RRQ or a WRQ packet.
 
-// There are two types of sessions: ReadSession and WriteSession.
-// - WriteSession is established by a WRQ packet.
-//   It keeps track of the last block ID
 package main
+
+type SessionKiller interface {
+	WantsToDie() bool // Grim!
+    MakeWantToDie()
+}
 
 type PacketHandler interface {
 	ProcessRead(p *ReadRequestPacket) Packet
@@ -12,7 +14,7 @@ type PacketHandler interface {
 	ProcessData(p *DataPacket) Packet
 	ProcessAck(p *AckPacket) Packet
 	ProcessError(p *ErrorPacket) Packet
-	WantsToDie() bool // Grim!
+    SessionKiller
 }
 
 type Session struct {
@@ -23,10 +25,6 @@ type Session struct {
 type WriteSession struct {
 	Session
 	Writer *File
-}
-
-type SessionKiller interface {
-    MakeWantToDie()
 }
 
 func MakeWriteSession(fs *FileSystem) *WriteSession {
@@ -42,7 +40,7 @@ func (s *WriteSession) MakeWantToDie() {
 }
 
 func (s *WriteSession) ProcessRead(packet *ReadRequestPacket) Packet {
-    return MakeErrorReply(s, ERR_ILLEGAL_OPERATION, "Unexpected DATA")
+    return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Unexpected DATA")
 }
 
 func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
@@ -56,7 +54,7 @@ func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
 
 func (s *WriteSession) ProcessData(packet *DataPacket) Packet {
 	if s.Writer == nil {
-        return MakeErrorReply(s, ERR_ILLEGAL_OPERATION, "DATA out of order")
+        return MakeErrorReply(ERR_ILLEGAL_OPERATION, "DATA out of order")
 	}
 
 	s.Writer.Append(packet.Data)
@@ -70,7 +68,7 @@ func (s *WriteSession) ProcessData(packet *DataPacket) Packet {
 }
 
 func (s *WriteSession) ProcessAck(packet *AckPacket) Packet {
-	return MakeErrorReply(s, ERR_ILLEGAL_OPERATION, "Unexpected ACK")
+	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Unexpected ACK")
 }
 
 func (s *WriteSession) ProcessError(packet *ErrorPacket) Packet {
@@ -98,7 +96,6 @@ func (s *ReadSession) MakeWantToDie() {
 func (s *ReadSession) ProcessRead(packet *ReadRequestPacket) Packet {
     reader, err := s.Fs.GetReader(packet.Filename)
     if err != nil {
-        s.ShouldDie = true
         return err
     }
 
@@ -107,11 +104,11 @@ func (s *ReadSession) ProcessRead(packet *ReadRequestPacket) Packet {
 }
 
 func (s *ReadSession) ProcessWrite(packet *WriteRequestPacket) Packet {
-	return MakeErrorReply(s, ERR_ILLEGAL_OPERATION, "Unexpected WRQ")
+	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Unexpected WRQ")
 }
 
 func (s *ReadSession) ProcessData(packet *DataPacket) Packet {
-	return MakeErrorReply(s, ERR_ILLEGAL_OPERATION, "Unexpected DATA")
+	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Unexpected DATA")
 }
 
 func (s *ReadSession) ProcessAck(packet *AckPacket) Packet {
@@ -137,8 +134,7 @@ func MakeDataReply(s *ReadSession) Packet {
 	return &DataPacket{s.Reader.Block, s.Reader.ReadBlock()}
 }
 
-func MakeErrorReply(s SessionKiller, errCode uint16, msg string) Packet {
-    s.MakeWantToDie()
+func MakeErrorReply(errCode uint16, msg string) Packet {
     return &ErrorPacket{errCode, msg}
 }
 
@@ -161,9 +157,20 @@ func Dispatch(s PacketHandler, packet Packet) Packet {
 
 func ProcessPacket(s PacketHandler, requestPacket []byte) []byte {
 	unmarshalled := UnmarshalPacket(requestPacket)
+    Log.Println("Received", unmarshalled)
 	reply := Dispatch(s, unmarshalled)
+
+    // All ERROR responses destroy the session.
+    _, isError := reply.(*ErrorPacket)
+    if isError {
+        s.MakeWantToDie()
+    }
+
 	if reply == nil {
 		return nil
 	}
-	return MarshalPacket(reply)
+
+    marshalled := MarshalPacket(reply)
+    Log.Println("Sent", marshalled)
+    return marshalled
 }
