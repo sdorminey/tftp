@@ -135,3 +135,12 @@ func Dispatch(s PacketHandler, packet Packet) Packet {
 		panic(&ErrorPacket{ERR_ILLEGAL_OPERATION, "Unrecognized opcode."})
 	}
 }
+
+func ProcessPacket(s PacketHandler, requestPacket []byte) []byte {
+    unmarshalled := UnmarshalPacket(requestPacket)
+    reply := Dispatch(s, unmarshalled)
+    if reply == nil {
+        return nil
+    }
+    return MarshalPacket(reply)
+}
