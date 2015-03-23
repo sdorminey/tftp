@@ -6,8 +6,6 @@
 //   It keeps track of the last block ID
 package main
 
-import "fmt"
-
 type PacketHandler interface {
 	ProcessRead(p *ReadRequestPacket) Packet
 	ProcessWrite(p *WriteRequestPacket) Packet
@@ -27,6 +25,10 @@ type WriteSession struct {
 	Writer *File
 }
 
+type SessionKiller interface {
+    MakeWantToDie()
+}
+
 func MakeWriteSession(fs *FileSystem) *WriteSession {
 	return &WriteSession{Session{false, fs}, nil}
 }
@@ -35,8 +37,12 @@ func (s *WriteSession) WantsToDie() bool {
 	return s.ShouldDie
 }
 
+func (s *WriteSession) MakeWantToDie() {
+    s.ShouldDie = true
+}
+
 func (s *WriteSession) ProcessRead(packet *ReadRequestPacket) Packet {
-	panic(nil)
+    return MakeErrorReply(s, ERR_ILLEGAL_OPERATION, "Unexpected DATA")
 }
 
 func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
@@ -50,7 +56,7 @@ func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
 
 func (s *WriteSession) ProcessData(packet *DataPacket) Packet {
 	if s.Writer == nil {
-		panic(&ErrorPacket{ERR_ILLEGAL_OPERATION, "DATA out of order"})
+        return MakeErrorReply(s, ERR_ILLEGAL_OPERATION, "DATA out of order")
 	}
 
 	s.Writer.Append(packet.Data)
@@ -64,10 +70,11 @@ func (s *WriteSession) ProcessData(packet *DataPacket) Packet {
 }
 
 func (s *WriteSession) ProcessAck(packet *AckPacket) Packet {
-	panic(&ErrorPacket{ERR_ILLEGAL_OPERATION, "Unexpected ACK"})
+	return MakeErrorReply(s, ERR_ILLEGAL_OPERATION, "Unexpected ACK")
 }
 
 func (s *WriteSession) ProcessError(packet *ErrorPacket) Packet {
+    s.ShouldDie = true
 	return nil
 }
 
@@ -84,17 +91,27 @@ func (s *ReadSession) WantsToDie() bool {
 	return s.ShouldDie
 }
 
+func (s *ReadSession) MakeWantToDie() {
+    s.ShouldDie = true
+}
+
 func (s *ReadSession) ProcessRead(packet *ReadRequestPacket) Packet {
-	s.Reader = s.Fs.GetReader(packet.Filename)
+    reader, err := s.Fs.GetReader(packet.Filename)
+    if err != nil {
+        s.ShouldDie = true
+        return err
+    }
+
+    s.Reader = reader
 	return MakeDataReply(s) // RRQ is acknowledged by sending DATA block 1.
 }
 
 func (s *ReadSession) ProcessWrite(packet *WriteRequestPacket) Packet {
-	panic(fmt.Errorf("Shouldn't have gotten here"))
+	return MakeErrorReply(s, ERR_ILLEGAL_OPERATION, "Unexpected WRQ")
 }
 
 func (s *ReadSession) ProcessData(packet *DataPacket) Packet {
-	panic(&ErrorPacket{ERR_ILLEGAL_OPERATION, "Unexpected DATA"})
+	return MakeErrorReply(s, ERR_ILLEGAL_OPERATION, "Unexpected DATA")
 }
 
 func (s *ReadSession) ProcessAck(packet *AckPacket) Packet {
@@ -112,11 +129,17 @@ func (s *ReadSession) ProcessAck(packet *AckPacket) Packet {
 }
 
 func (s *ReadSession) ProcessError(packet *ErrorPacket) Packet {
+    s.ShouldDie = true
 	return nil
 }
 
 func MakeDataReply(s *ReadSession) Packet {
 	return &DataPacket{s.Reader.Block, s.Reader.ReadBlock()}
+}
+
+func MakeErrorReply(s SessionKiller, errCode uint16, msg string) Packet {
+    s.MakeWantToDie()
+    return &ErrorPacket{errCode, msg}
 }
 
 func Dispatch(s PacketHandler, packet Packet) Packet {

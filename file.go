@@ -25,16 +25,16 @@ func (f *FileSystem) CreateFile(filename string) (*File, *ErrorPacket) {
 	return &File{Filename: filename}, nil
 }
 
-func (f *FileSystem) GetReader(filename string) *FileReader {
+func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
 	if f.Files[filename] == nil {
-		panic(&ErrorPacket{ERR_FILE_NOT_FOUND, ""})
+		return nil, &ErrorPacket{ERR_FILE_NOT_FOUND, ""}
 	}
 
 	file := f.Files[filename]
 	return &FileReader{
 		Block:   1,
 		Current: file.Pages.Front(),
-	}
+	}, nil
 }
 
 func (f *FileSystem) Commit(file *File) {
