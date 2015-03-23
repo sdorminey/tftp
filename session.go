@@ -5,7 +5,7 @@ package main
 
 type SessionKiller interface {
 	WantsToDie() bool // Grim!
-    MakeWantToDie()
+	MakeWantToDie()
 }
 
 type PacketHandler interface {
@@ -14,7 +14,7 @@ type PacketHandler interface {
 	ProcessData(p *DataPacket) Packet
 	ProcessAck(p *AckPacket) Packet
 	ProcessError(p *ErrorPacket) Packet
-    SessionKiller
+	SessionKiller
 }
 
 type Session struct {
@@ -36,11 +36,11 @@ func (s *WriteSession) WantsToDie() bool {
 }
 
 func (s *WriteSession) MakeWantToDie() {
-    s.ShouldDie = true
+	s.ShouldDie = true
 }
 
 func (s *WriteSession) ProcessRead(packet *ReadRequestPacket) Packet {
-    return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Unexpected DATA")
+	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Unexpected DATA")
 }
 
 func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
@@ -54,7 +54,7 @@ func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
 
 func (s *WriteSession) ProcessData(packet *DataPacket) Packet {
 	if s.Writer == nil {
-        return MakeErrorReply(ERR_ILLEGAL_OPERATION, "DATA out of order")
+		return MakeErrorReply(ERR_ILLEGAL_OPERATION, "DATA out of order")
 	}
 
 	s.Writer.Append(packet.Data)
@@ -72,7 +72,7 @@ func (s *WriteSession) ProcessAck(packet *AckPacket) Packet {
 }
 
 func (s *WriteSession) ProcessError(packet *ErrorPacket) Packet {
-    s.ShouldDie = true
+	s.ShouldDie = true
 	return nil
 }
 
@@ -90,16 +90,16 @@ func (s *ReadSession) WantsToDie() bool {
 }
 
 func (s *ReadSession) MakeWantToDie() {
-    s.ShouldDie = true
+	s.ShouldDie = true
 }
 
 func (s *ReadSession) ProcessRead(packet *ReadRequestPacket) Packet {
-    reader, err := s.Fs.GetReader(packet.Filename)
-    if err != nil {
-        return err
-    }
+	reader, err := s.Fs.GetReader(packet.Filename)
+	if err != nil {
+		return err
+	}
 
-    s.Reader = reader
+	s.Reader = reader
 	return MakeDataReply(s) // RRQ is acknowledged by sending DATA block 1.
 }
 
@@ -126,7 +126,7 @@ func (s *ReadSession) ProcessAck(packet *AckPacket) Packet {
 }
 
 func (s *ReadSession) ProcessError(packet *ErrorPacket) Packet {
-    s.ShouldDie = true
+	s.ShouldDie = true
 	return nil
 }
 
@@ -135,7 +135,7 @@ func MakeDataReply(s *ReadSession) Packet {
 }
 
 func MakeErrorReply(errCode uint16, msg string) Packet {
-    return &ErrorPacket{errCode, msg}
+	return &ErrorPacket{errCode, msg}
 }
 
 func Dispatch(s PacketHandler, packet Packet) Packet {
@@ -157,20 +157,20 @@ func Dispatch(s PacketHandler, packet Packet) Packet {
 
 func ProcessPacket(s PacketHandler, requestPacket []byte) []byte {
 	unmarshalled := UnmarshalPacket(requestPacket)
-    Log.Println("Received", unmarshalled)
+	Log.Println("Received", unmarshalled)
 	reply := Dispatch(s, unmarshalled)
 
-    // All ERROR responses destroy the session.
-    _, isError := reply.(*ErrorPacket)
-    if isError {
-        s.MakeWantToDie()
-    }
+	// All ERROR responses destroy the session.
+	_, isError := reply.(*ErrorPacket)
+	if isError {
+		s.MakeWantToDie()
+	}
 
 	if reply == nil {
 		return nil
 	}
 
-    marshalled := MarshalPacket(reply)
-    Log.Println("Sent", marshalled)
-    return marshalled
+	marshalled := MarshalPacket(reply)
+	Log.Println("Sent", marshalled)
+	return marshalled
 }

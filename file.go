@@ -28,7 +28,7 @@ func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
 	}
 
 	file := f.Files[filename]
-    Log.Println("Began reading file", filename)
+	Log.Println("Began reading file", filename)
 	return &FileReader{
 		Block:   1,
 		Current: file.Pages.Front(),
@@ -37,7 +37,7 @@ func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
 
 func (f *FileSystem) Commit(file *File) {
 	f.Files[file.Filename] = file
-    Log.Println("Added file", file.Filename)
+	Log.Println("Added file", file.Filename)
 }
 
 type FileReader struct {

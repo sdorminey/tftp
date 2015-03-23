@@ -61,4 +61,3 @@ func TestPacketMarshalling(t *testing.T) {
 		}
 	}
 }
-

@@ -20,11 +20,11 @@ func TestBasicFileReadWrite(t *testing.T) {
 
 	fs.Commit(file)
 
-    reader, err = fs.GetReader("bar")
-    ErrorIf(t, err == nil, "Should have gotten error.")
+	reader, err = fs.GetReader("bar")
+	ErrorIf(t, err == nil, "Should have gotten error.")
 
 	reader, err = fs.GetReader("foo")
-    ErrorIf(t, err != nil, "Should not have returned error.")
+	ErrorIf(t, err != nil, "Should not have returned error.")
 	data = reader.ReadBlock()
 	ErrorIf(t, !reflect.DeepEqual(data, []byte("hi")), "Block 0 bad")
 	ErrorIf(t, !reflect.DeepEqual(data, []byte("hi")), "Block 0 bad")

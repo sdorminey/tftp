@@ -22,12 +22,12 @@ func (c *Connection) Listen() {
 		// Transmit the first packet,
 		// any new reply we got on the last loop,
 		// or re-transmit a lost packet.
-        if c.LastReplyPacket != nil {
-            _, err := c.Conn.WriteToUDP(c.LastReplyPacket, c.RemoteAddr)
-            if err != nil {
-                Log.Println("Writing packet failed due to", err)
-            }
-        }
+		if c.LastReplyPacket != nil {
+			_, err := c.Conn.WriteToUDP(c.LastReplyPacket, c.RemoteAddr)
+			if err != nil {
+				Log.Println("Writing packet failed due to", err)
+			}
+		}
 
 		// Check if we still want to live.
 		if c.Handler == nil || c.Handler.WantsToDie() {
@@ -44,10 +44,10 @@ func (c *Connection) Listen() {
 			c.LastReplyPacket = ProcessPacket(c.Handler, data)
 		} else {
 			Log.Println("Error: ", err)
-            opError, isOpError := err.(*net.OpError)
-            if !isOpError || !opError.Timeout() {
-                return
-            }
+			opError, isOpError := err.(*net.OpError)
+			if !isOpError || !opError.Timeout() {
+				return
+			}
 		}
 	}
 }
@@ -115,7 +115,7 @@ func Listen(host string, port int, fs *FileSystem) {
 	for {
 		bytesRead, clientAddr, _ := conn.ReadFromUDP(buffer)
 		data := buffer[:bytesRead]
-        Log.Println("Created connection for remote host", clientAddr)
+		Log.Println("Created connection for remote host", clientAddr)
 
 		c, err := MakeConnection(clientAddr, data, fs)
 		if err == nil {
@@ -125,4 +125,3 @@ func Listen(host string, port int, fs *FileSystem) {
 		}
 	}
 }
-

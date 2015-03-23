@@ -5,11 +5,11 @@ package main
 
 import (
 	"flag"
-    "log"
-    "os"
+	"log"
+	"os"
 )
 
-var Log = log.New(os.Stdout, "", log.Ltime | log.Lshortfile)
+var Log = log.New(os.Stdout, "", log.Ltime|log.Lshortfile)
 
 // Todo: strip out panics and use error.
 func main() {
