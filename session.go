@@ -156,17 +156,17 @@ func Dispatch(s PacketHandler, packet Packet) Packet {
 }
 
 func ProcessPacket(s PacketHandler, requestPacket []byte) []byte {
-    var reply Packet
+	var reply Packet
 
 	unmarshalled, err := UnmarshalPacket(requestPacket)
 
-    if err != nil {
-        Log.Println("Error parsing packet", err)
-        reply = MakeErrorReply(ERR_ILLEGAL_OPERATION, err.Error())
-    } else {
-        Log.Println("Received", unmarshalled)
-        reply = Dispatch(s, unmarshalled)
-    }
+	if err != nil {
+		Log.Println("Error parsing packet", err)
+		reply = MakeErrorReply(ERR_ILLEGAL_OPERATION, err.Error())
+	} else {
+		Log.Println("Received", unmarshalled)
+		reply = Dispatch(s, unmarshalled)
+	}
 
 	// All ERROR responses destroy the session.
 	_, isError := reply.(*ErrorPacket)

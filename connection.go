@@ -37,10 +37,10 @@ func (c *Connection) Listen() {
 		c.Conn.SetDeadline(time.Now().Add(3 * time.Second))
 		bytesRead, clientAddr, err := c.Conn.ReadFromUDP(buffer)
 
-        // Ignore requests sent to this port by other TID's.
-        if !clientAddr.IP.Equal(c.RemoteAddr.IP) || clientAddr.Port != c.RemoteAddr.Port {
-            continue
-        }
+		// Ignore requests sent to this port by other TID's.
+		if !clientAddr.IP.Equal(c.RemoteAddr.IP) || clientAddr.Port != c.RemoteAddr.Port {
+			continue
+		}
 
 		// If we have a new packet, send it to the handler for processing.
 		if err == nil {
@@ -118,14 +118,14 @@ func Listen(host string, port int, fs *FileSystem) {
 	buffer := make([]byte, 768)
 	for {
 		bytesRead, clientAddr, err := conn.ReadFromUDP(buffer)
-        if err != nil {
-            Log.Println("Got error listening", err)
-            continue
-        }
+		if err != nil {
+			Log.Println("Got error listening", err)
+			continue
+		}
 
-        // Create a copy so that the data won't be overwritten while it's being processed.
+		// Create a copy so that the data won't be overwritten while it's being processed.
 		data := make([]byte, bytesRead)
-        copy(data, buffer[:bytesRead])
+		copy(data, buffer[:bytesRead])
 
 		Log.Println("Created connection for remote host", clientAddr)
 

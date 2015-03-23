@@ -98,19 +98,19 @@ func (p *RequestPacket) Marshal() []byte {
 
 func (p *RequestPacket) Unmarshal(data []byte) error {
 	filename, err := ExtractNullTerminatedString(data)
-    if err != nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 
-	mode, err := ExtractNullTerminatedString(data[1 + len(filename):])
-    if err != nil {
-        return err
-    }
+	mode, err := ExtractNullTerminatedString(data[1+len(filename):])
+	if err != nil {
+		return err
+	}
 
 	p.Filename = filename
 	p.Mode = mode
 
-    return nil
+	return nil
 }
 
 // Data Packet
@@ -122,14 +122,14 @@ func (p *DataPacket) Marshal() []byte {
 }
 
 func (p *DataPacket) Unmarshal(data []byte) error {
-    if len(data) < 3 {
-        return fmt.Errorf("Input too small.")
-    }
+	if len(data) < 3 {
+		return fmt.Errorf("Input too small.")
+	}
 
 	p.Block = ConvertToUInt16(data[:2])
 	p.Data = data[2:]
 
-    return nil
+	return nil
 }
 
 // Error Packet
@@ -141,19 +141,19 @@ func (p *ErrorPacket) Marshal() []byte {
 }
 
 func (p *ErrorPacket) Unmarshal(data []byte) error {
-    if len(data) < 3 {
-        return fmt.Errorf("Input too small.")
-    }
+	if len(data) < 3 {
+		return fmt.Errorf("Input too small.")
+	}
 
 	p.ErrorCode = ConvertToUInt16(data[:2])
-    msg, err := ExtractNullTerminatedString(data[2:])
-    p.ErrMsg = msg
+	msg, err := ExtractNullTerminatedString(data[2:])
+	p.ErrMsg = msg
 
-    if err != nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 
-    return nil
+	return nil
 }
 
 // Ack Packet
@@ -162,13 +162,13 @@ func (p *AckPacket) Marshal() []byte {
 }
 
 func (p *AckPacket) Unmarshal(data []byte) error {
-    if len(data) != 2 {
-        return fmt.Errorf("Input wrong size.")
-    }
+	if len(data) != 2 {
+		return fmt.Errorf("Input wrong size.")
+	}
 
 	p.Block = ConvertToUInt16(data)
 
-    return nil
+	return nil
 }
 
 // Factory methods
@@ -181,18 +181,18 @@ var packetTypes = map[uint16]func() Packet{
 }
 
 func UnmarshalPacket(data []byte) (Packet, error) {
-    if len(data) < 3 {
-        return nil, fmt.Errorf("Input too small.")
-    }
+	if len(data) < 3 {
+		return nil, fmt.Errorf("Input too small.")
+	}
 
 	opcode := ConvertToUInt16(data[:2])
 	payload := data[2:]
 
 	packet := packetTypes[opcode]()
-    err := packet.Unmarshal(payload)
-    if err != nil {
-        return nil, err
-    }
+	err := packet.Unmarshal(payload)
+	if err != nil {
+		return nil, err
+	}
 
 	return packet, nil
 }
@@ -231,7 +231,7 @@ func ExtractNullTerminatedString(data []byte) (string, error) {
 		}
 	}
 
-    return "", fmt.Errorf("No null encountered.")
+	return "", fmt.Errorf("No null encountered.")
 }
 
 func ConvertToUInt16(buffer []byte) uint16 {

@@ -2,8 +2,8 @@
 package main
 
 import (
-    "container/list"
-    "fmt"
+	"container/list"
+	"fmt"
 )
 
 // Accesses files.
