@@ -122,7 +122,11 @@ func Listen(host string, port int, fs *FileSystem) {
             Log.Println("Got error listening", err)
             continue
         }
-		data := buffer[:bytesRead]
+
+        // Create a copy so that the data won't be overwritten while it's being processed.
+		data := make([]byte, bytesRead)
+        copy(data, buffer[:bytesRead])
+
 		Log.Println("Created connection for remote host", clientAddr)
 
 		c, err := MakeConnection(clientAddr, data, fs)
