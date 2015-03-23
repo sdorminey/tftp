@@ -9,7 +9,7 @@ import (
     "os"
 )
 
-var Log *log.Logger
+var Log = log.New(os.Stdout, "", log.Ltime | log.Lshortfile)
 
 // Todo: strip out panics and use error.
 func main() {
@@ -17,7 +17,6 @@ func main() {
 	host := flag.String("host", "127.0.0.1", "host address to listen on.")
 	flag.Parse()
 
-    Log = log.New(os.Stdout, "", log.Ltime | log.Lshortfile)
 	Log.Printf("Listening on host %s, port %d\n", *host, *listenPort)
 
 	fs := MakeFileSystem()
