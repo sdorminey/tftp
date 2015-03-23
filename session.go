@@ -137,10 +137,10 @@ func Dispatch(s PacketHandler, packet Packet) Packet {
 }
 
 func ProcessPacket(s PacketHandler, requestPacket []byte) []byte {
-    unmarshalled := UnmarshalPacket(requestPacket)
-    reply := Dispatch(s, unmarshalled)
-    if reply == nil {
-        return nil
-    }
-    return MarshalPacket(reply)
+	unmarshalled := UnmarshalPacket(requestPacket)
+	reply := Dispatch(s, unmarshalled)
+	if reply == nil {
+		return nil
+	}
+	return MarshalPacket(reply)
 }
