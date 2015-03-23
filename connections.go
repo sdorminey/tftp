@@ -10,6 +10,8 @@ const Timeout time.Duration = 3 * time.Second
 
 // Contains all state associated with an on-going connection.
 type Connection struct {
+    // Receives UDP packets from the remote host.
+    RemoteAddr          *net.UDPAddr
     // RRQ or WRQ handler for the connection.
     Handler             PacketHandler
     // We store the last packet, for re-transmission in case of timeout.
@@ -21,12 +23,6 @@ func MakeConnection(
     raddr *net.UDPAddr,
     fs *FileSystem) (*Connection, error) {
 
-    laddr := &net.UDPAddr {
-        IP: net.ParseIP("127.0.0.1"),
-        Port: 0, // This will select a random port from the ephemeral port-space.
-    }
-
-    listener, _ := net.ListenUDP("udp", laddr)
     var handler PacketHandler
 
     opcode := ConvertToUInt16(firstPacket[:2])
@@ -45,8 +41,6 @@ func MakeConnection(
         Handler: handler,
     }
 
-    go conn.Listen()
-
     conn.Receive(firstPacket)
 
     return conn, nil
@@ -55,11 +49,39 @@ func MakeConnection(
 func (c *Connection) Receive(data []byte) {
     requestPacket := UnmarshalPacket(data)
     replyPacket := Dispatch(c.Handler, requestPacket)
-    fmt.Printf("replyPacket %v %T\n", replyPacket, replyPacket)
     replyBytes := MarshalPacket(replyPacket)
-    fmt.Printf("replyBytes %v %T\n", replyBytes, replyBytes)
-    c.LastPacket = make([]byte, len(replyBytes))
-    copy(c.LastPacket, replyBytes)
+    result := make([]byte, len(replyBytes))
+    copy(result, replyBytes)
+    c.LastPacket = result
+}
+
+func (c *Connection) Listen() error
+{
+    // Todo: make configurable.
+    readTimeout := time.Second * 6
+
+    laddr := &net.UDPAddr {
+        IP: net.ParseIP("127.0.0.1"),
+        Port: 0, // This will select a random port from the ephemeral port-space.
+    }
+
+    conn, _ := net.ListenUDP("udp", laddr)
+    conn.SetDeadline(readTimeout)
+
+    for {
+        // Wait for the next packet from the remote host.
+        bytesRead, _, err := conn.ReadFromUDP(buffer)
+        if err == nil {
+            // We have a packet to process.
+            c.Receive(buffer[:bytesRead])
+        }
+
+        //
+        _, err := conn.WriteToUDP(result)
+        if err != nil {
+            return err
+        }
+    }
 }
 
 // Listens for packets from the remote TID until the connection is terminated.
