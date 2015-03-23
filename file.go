@@ -1,7 +1,10 @@
 // Todo: thread safety.
 package main
 
-import "container/list"
+import (
+    "container/list"
+    "fmt"
+)
 
 // Accesses files.
 type FileSystem struct {
@@ -24,7 +27,7 @@ func (f *FileSystem) CreateFile(filename string) (*File, *ErrorPacket) {
 
 func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
 	if f.Files[filename] == nil {
-		return nil, &ErrorPacket{ERR_FILE_NOT_FOUND, ""}
+		return nil, &ErrorPacket{ERR_FILE_NOT_FOUND, fmt.Sprintf("%s does not exist", filename)}
 	}
 
 	file := f.Files[filename]

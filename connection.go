@@ -117,7 +117,11 @@ func Listen(host string, port int, fs *FileSystem) {
 
 	buffer := make([]byte, 768)
 	for {
-		bytesRead, clientAddr, _ := conn.ReadFromUDP(buffer)
+		bytesRead, clientAddr, err := conn.ReadFromUDP(buffer)
+        if err != nil {
+            Log.Println("Got error listening", err)
+            continue
+        }
 		data := buffer[:bytesRead]
 		Log.Println("Created connection for remote host", clientAddr)
 

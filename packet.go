@@ -13,6 +13,14 @@ const (
 )
 
 // Packet error codes:
+//   0         Not defined, see error message (if any).
+//   1         File not found.
+//   2         Access violation.
+//   3         Disk full or allocation exceeded.
+//   4         Illegal TFTP operation.
+//   5         Unknown transfer ID.
+//   6         File already exists.
+//   7         No such user.
 const (
 	ERR_UNDEFINED           = iota
 	ERR_FILE_NOT_FOUND      = iota
@@ -75,15 +83,6 @@ type AckPacket struct {
 //   ERROR | 05    |  ErrorCode |   ErrMsg   |   0  |
 //          ----------------------------------------
 type ErrorPacket struct {
-	//   Value     Meaning
-	//   0         Not defined, see error message (if any).
-	//   1         File not found.
-	//   2         Access violation.
-	//   3         Disk full or allocation exceeded.
-	//   4         Illegal TFTP operation.
-	//   5         Unknown transfer ID.
-	//   6         File already exists.
-	//   7         No such user.
 	ErrorCode uint16
 
 	ErrMsg string
@@ -142,6 +141,7 @@ func (p *AckPacket) Unmarshal(data []byte) {
 	p.Block = ConvertToUInt16(data[0:2])
 }
 
+// Factory methods
 var packetTypes = map[uint16]func() Packet{
 	PKT_RRQ:   func() Packet { return new(ReadRequestPacket) },
 	PKT_WRQ:   func() Packet { return new(WriteRequestPacket) },
@@ -150,7 +150,6 @@ var packetTypes = map[uint16]func() Packet{
 	PKT_ERROR: func() Packet { return new(ErrorPacket) },
 }
 
-// Factory methods
 func UnmarshalPacket(data []byte) Packet {
 	opcode := ConvertToUInt16(data[0:2])
 	payload := data[2:]
