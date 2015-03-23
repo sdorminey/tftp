@@ -8,13 +8,12 @@ type ClientIdentity struct {
 }
 
 type SessionLifecycle struct {
-	Sessions map[ClientIdentity]PacketHandler
+    Handler  PacketHandler
 	Fs       *FileSystem
 }
 
 func MakeSessionLifecycle(fs *FileSystem) *SessionLifecycle {
 	lifecycle := new(SessionLifecycle)
-	lifecycle.Sessions = make(map[ClientIdentity]PacketHandler)
 	lifecycle.Fs = fs
 	return lifecycle
 }
