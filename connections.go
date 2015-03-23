@@ -3,27 +3,23 @@ package main
 import (
     "net"
     "time"
+    "fmt"
 )
 
 const Timeout time.Duration = 3 * time.Second
 
 // Contains all state associated with an on-going connection.
 type Connection struct {
-    // Receives UDP packets from the remote host.
-    Listener            *net.UDPConn
-    // Transmits UDP packets to the remote host.
-    Dialer              *net.UDPConn
     // RRQ or WRQ handler for the connection.
     Handler             PacketHandler
     // We store the last packet, for re-transmission in case of timeout.
     LastPacket          []byte
-    // Wakes up the Send() goroutine if it's time to retransmit.
-    TimeLastReceived    *time.Timer
 }
 
 func MakeConnection(
     firstPacket []byte,
-    raddr *net.UDPAddr) (*Connection, error) {
+    raddr *net.UDPAddr,
+    fs *FileSystem) (*Connection, error) {
 
     laddr := &net.UDPAddr {
         IP: net.ParseIP("127.0.0.1"),
@@ -31,13 +27,25 @@ func MakeConnection(
     }
 
     listener, _ := net.ListenUDP("udp", laddr)
-    dialer, _ := net.DialUDP("udp", laddr, raddr)
+    var handler PacketHandler
+
+    opcode := ConvertToUInt16(firstPacket[:2])
+    switch opcode {
+    case PKT_RRQ:
+        handler = MakeReadSession(fs)
+    case PKT_WRQ:
+        handler = MakeWriteSession(fs)
+    default:
+        panic(nil) // Todo: fix
+    }
 
     conn := &Connection {
         Listener: listener,
-        Dialer: dialer,
-        TimeLastReceived: time.NewTimer(Timeout),
+        RemoteAddr: raddr,
+        Handler: handler,
     }
+
+    go conn.Listen()
 
     conn.Receive(firstPacket)
 
@@ -45,52 +53,36 @@ func MakeConnection(
 }
 
 func (c *Connection) Receive(data []byte) {
-    opcode := ConvertToUInt16(data[:2])
-
-    switch opcode {
-    case PKT_RRQ:
-        if c.Handler == nil {
-            c.Handler = &ReadSession{}
-        }
-    case PKT_WRQ:
-        if c.Handler == nil {
-            c.Handler = &WriteSession{}
-        }
-    default:
-        if c.Handler == nil {
-            panic(nil) // Todo: not implemented.
-        }
-    }
-
     requestPacket := UnmarshalPacket(data)
     replyPacket := Dispatch(c.Handler, requestPacket)
-    replyBytes := replyPacket.Marshal()
+    fmt.Printf("replyPacket %v %T\n", replyPacket, replyPacket)
+    replyBytes := MarshalPacket(replyPacket)
+    fmt.Printf("replyBytes %v %T\n", replyBytes, replyBytes)
     c.LastPacket = make([]byte, len(replyBytes))
     copy(c.LastPacket, replyBytes)
 }
 
 // Listens for packets from the remote TID until the connection is terminated.
-func (c *Connection) Listen() {
+func (c *Connection) Listen(
+    raddr *net.UDPAddr,
+) {
+    Listener            *net.UDPConn
+    defer c.Listener.Close()
     buffer := make([]byte, 768)
+    fmt.Println("Starting to listen")
 
+    var err error
     for bytesRead, _, err := c.Listener.ReadFromUDP(buffer); err == nil; {
+        fmt.Println("Received %d bytes.", bytesRead)
         c.TimeLastReceived.Reset(Timeout)
         c.Receive(buffer[:bytesRead])
-    }
-}
-
-// Dials the remote host and transfers the last packet we have for her.
-// We'll retry if we haven't received any packets in long enough.
-func (c *Connection) Dial() {
-    // Todo: handle errors.
-    for _, err := c.Dialer.Write(c.LastPacket); err == nil; {
-        // Retry sending the last packet if we've been woken up from the timer.
-        <-c.TimeLastReceived.C
+        _, err := c.Listener.WriteToUDP(c.LastPacket, c.RemoteAddr)
+        if c.Handler.WantsToDie() {
+        }
     }
 }
 
 func (c *Connection) Terminate() {
     c.Listener.Close()
-    c.Dialer.Close()
     _ = c.TimeLastReceived.Stop()
 }

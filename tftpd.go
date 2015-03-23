@@ -10,7 +10,7 @@ import (
 )
 
 // Dispatches UDP packets indefinitely to sessions.
-func Listen(host string, port int, lifecycle *SessionLifecycle) {
+func Listen(host string, port int, fs *FileSystem) {
 	addr := net.UDPAddr{
 		Port: port,
 		IP:   net.ParseIP(host),
@@ -22,17 +22,11 @@ func Listen(host string, port int, lifecycle *SessionLifecycle) {
 		panic(err)
 	}
 
-	buffer := make([]byte, 2048)
+	buffer := make([]byte, 768)
 	for {
 		bytesRead, clientAddr, _ := conn.ReadFromUDP(buffer)
 
-		data := buffer[:bytesRead]
-		addr := ClientIdentity{clientAddr.IP.String(), clientAddr.Port}
-		dataToSend := lifecycle.ProcessPacket(addr, data)
-
-		if dataToSend != nil {
-			_, _ = conn.WriteToUDP(dataToSend, clientAddr) // Todo: log error
-		}
+        _, err = MakeConnection(buffer[:bytesRead], clientAddr, fs)
 	}
 }
 
@@ -45,6 +39,5 @@ func main() {
 	fmt.Printf("Listening on host %s, port %d\n", *host, *listenPort)
 
 	fs := MakeFileSystem()
-	lifecycle := MakeSessionLifecycle(fs)
-	Listen(*host, *listenPort, lifecycle)
+	Listen(*host, *listenPort, fs)
 }
