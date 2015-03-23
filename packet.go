@@ -1,4 +1,4 @@
-// Formats byte arrays into packets.
+// Formats byte arrays into packets and vice-versa.
 package main
 
 import "fmt"
