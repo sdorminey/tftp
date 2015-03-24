@@ -24,6 +24,16 @@ type Session struct {
 	Fs        *FileSystem
 }
 
+func (s *Session) WantsToDie() bool {
+	return s.ShouldDie
+}
+
+func (s *Session) MakeWantToDie() {
+	s.ShouldDie = true
+}
+
+// Write Session (WRQ):
+
 type WriteSession struct {
 	Session
 	Writer *File
@@ -33,16 +43,8 @@ func MakeWriteSession(fs *FileSystem) *WriteSession {
 	return &WriteSession{Session{false, fs}, nil}
 }
 
-func (s *WriteSession) WantsToDie() bool {
-	return s.ShouldDie
-}
-
-func (s *WriteSession) MakeWantToDie() {
-	s.ShouldDie = true
-}
-
 func (s *WriteSession) ProcessRead(packet *ReadRequestPacket) Packet {
-	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Unexpected DATA")
+	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Bad packet")
 }
 
 func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
@@ -55,9 +57,17 @@ func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
 }
 
 func (s *WriteSession) ProcessData(packet *DataPacket) Packet {
-	if s.Writer == nil {
-		return MakeErrorReply(ERR_ILLEGAL_OPERATION, "DATA out of order")
-	}
+    // Ignore duplicated DATA packets.
+    if s.Writer.GetNumBlocks() >= packet.Block {
+        return nil
+    }
+
+    // Packets from the future cannot be explained except with a time machine,
+    // since acknowledgement is lock-step and they should have gotten an ACK for block b before
+    // sending DATA for block n > b.
+    if s.Writer.GetNumBlocks() != packet.Block - 1 {
+        return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Out of order")
+    }
 
 	s.Writer.Append(packet.Data)
 
@@ -73,13 +83,15 @@ func (s *WriteSession) ProcessData(packet *DataPacket) Packet {
 }
 
 func (s *WriteSession) ProcessAck(packet *AckPacket) Packet {
-	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Unexpected ACK")
+	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Bad packet")
 }
 
 func (s *WriteSession) ProcessError(packet *ErrorPacket) Packet {
 	s.ShouldDie = true
 	return nil
 }
+
+// Read Session (RRQ):
 
 type ReadSession struct {
 	Session
@@ -88,14 +100,6 @@ type ReadSession struct {
 
 func MakeReadSession(fs *FileSystem) *ReadSession {
 	return &ReadSession{Session{false, fs}, nil}
-}
-
-func (s *ReadSession) WantsToDie() bool {
-	return s.ShouldDie
-}
-
-func (s *ReadSession) MakeWantToDie() {
-	s.ShouldDie = true
 }
 
 func (s *ReadSession) ProcessRead(packet *ReadRequestPacket) Packet {
@@ -109,23 +113,30 @@ func (s *ReadSession) ProcessRead(packet *ReadRequestPacket) Packet {
 }
 
 func (s *ReadSession) ProcessWrite(packet *WriteRequestPacket) Packet {
-	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Unexpected WRQ")
+	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Bad packet")
 }
 
 func (s *ReadSession) ProcessData(packet *DataPacket) Packet {
-	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Unexpected DATA")
+	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Bad packet")
 }
 
 func (s *ReadSession) ProcessAck(packet *AckPacket) Packet {
-	if packet.Block == s.Reader.Block {
-		// Client has acknowledged the last block with an ACK.
-		// Now we can die happily.
-		if s.Reader.AtEnd() {
-			s.ShouldDie = true
-			return nil
-		}
-		s.Reader.AdvanceBlock()
-	}
+    // Duplicate or outdated ACKs can be explained by the network, and shouldn't cause error.
+    if packet.Block < s.Reader.Block {
+        return nil
+    }
+
+    if packet.Block > s.Reader.Block {
+        return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Out of order")
+    }
+
+    // Client has acknowledged the last block with an ACK.
+    // Now we can die happily.
+    if s.Reader.AtEnd() {
+        s.ShouldDie = true
+        return nil
+    }
+    s.Reader.AdvanceBlock()
 
 	return MakeDataReply(s)
 }
@@ -142,6 +153,8 @@ func MakeDataReply(s *ReadSession) Packet {
 func MakeErrorReply(errCode uint16, msg string) Packet {
 	return &ErrorPacket{errCode, msg}
 }
+
+// Dispatch
 
 func DispatchInner(s PacketHandler, packet Packet) Packet {
 	switch p := packet.(type) {

@@ -3,7 +3,6 @@ package main
 
 import (
 	"container/list"
-	"fmt"
 )
 
 // Accesses files.
@@ -27,7 +26,7 @@ func (f *FileSystem) CreateFile(filename string) (*File, *ErrorPacket) {
 
 func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
 	if f.Files[filename] == nil {
-		return nil, &ErrorPacket{ERR_FILE_NOT_FOUND, fmt.Sprintf("%s does not exist", filename)}
+		return nil, &ErrorPacket{ERR_FILE_NOT_FOUND, ""}
 	}
 
 	file := f.Files[filename]
