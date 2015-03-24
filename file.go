@@ -1,22 +1,24 @@
-// Todo: thread safety.
 package main
 
 import (
 	"container/list"
+    "sync"
 )
 
 // Accesses files.
 type FileSystem struct {
 	Files map[string]*File
+    sync.Mutex
 }
 
 func MakeFileSystem() *FileSystem {
-	return &FileSystem{
-		Files: make(map[string]*File),
-	}
+    return &FileSystem{Files: make(map[string]*File)}
 }
 
 func (f *FileSystem) CreateFile(filename string) (*File, *ErrorPacket) {
+    f.Lock()
+    defer f.Unlock()
+
 	if f.Files[filename] != nil {
 		return nil, &ErrorPacket{ERR_FILE_ALREADY_EXISTS, ""}
 	}
@@ -25,6 +27,9 @@ func (f *FileSystem) CreateFile(filename string) (*File, *ErrorPacket) {
 }
 
 func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
+    f.Lock()
+    defer f.Unlock()
+
 	if f.Files[filename] == nil {
 		return nil, &ErrorPacket{ERR_FILE_NOT_FOUND, ""}
 	}
@@ -38,6 +43,9 @@ func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
 }
 
 func (f *FileSystem) Commit(file *File) *ErrorPacket {
+    f.Lock()
+    defer f.Unlock()
+
     if f.Files[file.Filename] != nil {
         return &ErrorPacket{ERR_FILE_ALREADY_EXISTS, ""}
     }
