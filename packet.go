@@ -42,6 +42,7 @@ type PacketReader interface {
 type Packet interface {
 	PacketReader
 	PacketWriter
+    GetOpcode() uint16
 }
 
 //          2 bytes    string   1 byte     string   1 byte
@@ -87,6 +88,13 @@ type ErrorPacket struct {
 
 	ErrMsg string
 }
+
+// Opcodes
+func (p *ReadRequestPacket) GetOpcode() uint16 { return PKT_RRQ }
+func (p *WriteRequestPacket) GetOpcode() uint16 { return PKT_WRQ }
+func (p *DataPacket) GetOpcode() uint16 { return PKT_DATA }
+func (p *AckPacket) GetOpcode() uint16 { return PKT_ACK }
+func (p *ErrorPacket) GetOpcode() uint16 { return PKT_ERROR }
 
 // Request Packet
 func (p *RequestPacket) Marshal() []byte {
@@ -201,26 +209,9 @@ func MarshalPacket(packet Packet) []byte {
 	data := make([]byte, 768)
 	marshalled := packet.Marshal()
 	copy(data[2:], marshalled)
-	copy(data[0:2], ConvertFromUInt16(GetOpcode(packet)))
+	copy(data[0:2], ConvertFromUInt16(packet.GetOpcode()))
 
 	return data[:2+len(marshalled)]
-}
-
-func GetOpcode(packet Packet) uint16 {
-	switch packet.(type) {
-	case *ReadRequestPacket:
-		return 1
-	case *WriteRequestPacket:
-		return 2
-	case *DataPacket:
-		return 3
-	case *AckPacket:
-		return 4
-	case *ErrorPacket:
-		return 5
-	}
-
-	panic(fmt.Errorf("Unrecognized packet type %v", packet))
 }
 
 // Conversion helper methods:
