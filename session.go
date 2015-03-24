@@ -191,7 +191,7 @@ func Dispatch(s PacketHandler, packet Packet) Packet {
     return reply
 }
 
-func ProcessPacket(s PacketHandler, requestPacket []byte) []byte {
+func ProcessPacket(s PacketHandler, requestPacket []byte) (marshalled []byte) {
 	var reply Packet
 
 	unmarshalled, _ := UnmarshalPacket(requestPacket)
@@ -202,7 +202,9 @@ func ProcessPacket(s PacketHandler, requestPacket []byte) []byte {
 
 	Log.Println("Sent", reply)
 
-	marshalled := MarshalPacket(reply)
+    if reply != nil {
+        marshalled = MarshalPacket(reply)
+    }
 
 	return marshalled
 }

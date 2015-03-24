@@ -7,9 +7,16 @@ import (
 	"flag"
 	"log"
 	"os"
+    "net"
 )
 
 var Log = log.New(os.Stdout, "", log.Ltime|log.Lshortfile)
+
+type NetUDPListener struct {}
+
+func (l NetUDPListener) ListenUDP(netType string, laddr *net.UDPAddr) (UDPTransport, error) {
+    return net.ListenUDP(netType, laddr)
+}
 
 // Todo: strip out panics and use error.
 func main() {
@@ -20,5 +27,5 @@ func main() {
 	Log.Printf("Listening on host %s, port %d\n", *host, *listenPort)
 
 	fs := MakeFileSystem()
-	Listen(*host, *listenPort, fs)
+	Listen(NetUDPListener{}, *host, *listenPort, fs)
 }

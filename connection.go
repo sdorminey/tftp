@@ -5,9 +5,20 @@ import (
 	"time"
 )
 
+type UDPTransport interface {
+    WriteToUDP(b []byte, addr *net.UDPAddr) (int, error)
+    SetReadDeadline(t time.Time) error
+    ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
+    Close() error
+}
+
+type UDPListener interface {
+    ListenUDP(net string, laddr *net.UDPAddr) (UDPTransport, error)
+}
+
 type Connection struct {
 	LastReplyPacket []byte
-	Conn            *net.UDPConn
+	Conn            UDPTransport
 	Handler         PacketHandler
 	RemoteAddr      *net.UDPAddr
 }
@@ -19,6 +30,7 @@ func (c *Connection) Listen() {
 	buffer := make([]byte, 768)
 
 	for {
+        Log.Println("Loop")
 		// Transmit the first packet,
 		// any new reply we got on the last loop,
 		// or re-transmit a lost packet.
@@ -26,24 +38,29 @@ func (c *Connection) Listen() {
 			_, err := c.Conn.WriteToUDP(c.LastReplyPacket, c.RemoteAddr)
 			if err != nil {
 				Log.Println("Writing packet failed due to", err)
-			}
-		}
+			} else {
+                Log.Println("Successfully sent packet.")
+            }
+		} else {
+            Log.Println("No packet to send.")
+        }
 
 		// Check if we still want to live.
 		if c.Handler == nil || c.Handler.WantsToDie() {
 			return
 		}
 
-		c.Conn.SetDeadline(time.Now().Add(3 * time.Second))
+		c.Conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 		bytesRead, clientAddr, err := c.Conn.ReadFromUDP(buffer)
 
-		// Ignore requests sent to this port by other TID's.
-		if !clientAddr.IP.Equal(c.RemoteAddr.IP) || clientAddr.Port != c.RemoteAddr.Port {
-			continue
-		}
 
 		// If we have a new packet, send it to the handler for processing.
 		if err == nil {
+            // Ignore requests sent to this port by other TID's.
+            if !clientAddr.IP.Equal(c.RemoteAddr.IP) || clientAddr.Port != c.RemoteAddr.Port {
+                continue
+            }
+
 			data := buffer[:bytesRead]
 			c.LastReplyPacket = ProcessPacket(c.Handler, data)
 		} else {
@@ -96,20 +113,22 @@ func MakeConnection(raddr *net.UDPAddr, firstPacket []byte, fs *FileSystem) (*Co
 			})
 	}
 
-	// Handle the first packet of information.
-	c.LastReplyPacket = ProcessPacket(c.Handler, firstPacket)
+    if c.Handler != nil {
+        // Handle the first packet of information.
+        c.LastReplyPacket = ProcessPacket(c.Handler, firstPacket)
+    }
 
 	return c, nil
 }
 
 // Listens on the introduction port (i.e. port 69.)
-func Listen(host string, port int, fs *FileSystem) {
+func Listen(listener UDPListener, host string, port int, fs *FileSystem) {
 	addr := net.UDPAddr{
 		Port: port,
 		IP:   net.ParseIP(host),
 	}
 
-	conn, err := net.ListenUDP("udp", &addr)
+	conn, err := listener.ListenUDP("udp", &addr)
 	if err != nil {
 		panic(err)
 	}
@@ -117,6 +136,7 @@ func Listen(host string, port int, fs *FileSystem) {
 
 	buffer := make([]byte, 768)
 	for {
+        Log.Println("Waiting for messages")
 		bytesRead, clientAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
 			Log.Println("Got error listening", err)
