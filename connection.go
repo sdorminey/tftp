@@ -3,140 +3,159 @@ package main
 import (
 	"net"
 	"time"
+    "fmt"
 )
-
-type UDPTransport interface {
-    WriteToUDP(b []byte, addr *net.UDPAddr) (int, error)
-    SetReadDeadline(t time.Time) error
-    ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
-    Close() error
-}
-
-type UDPListener interface {
-    ListenUDP(net string, laddr *net.UDPAddr) (UDPTransport, error)
-}
 
 type Connection struct {
 	LastReplyPacket []byte
-	Conn            UDPTransport
+	Conn            *net.UDPConn
 	Handler         PacketHandler
 	RemoteAddr      *net.UDPAddr
+    MaxRetries      int
+    Timeout         time.Duration
 }
 
-// Runs the connection. When done, the connection is terminated.
+var maxPacketSize = 516
+
+// Listens for packets for the lifetime of the connection.
 func (c *Connection) Listen() {
 	defer c.Conn.Close()
 
-	buffer := make([]byte, 768)
+    retries := 0
 
 	for {
-        Log.Println("Loop")
-		// Transmit the first packet,
-		// any new reply we got on the last loop,
+		// Transmit the first reply packet of the connection, any new reply packet
 		// or re-transmit a lost packet.
 		if c.LastReplyPacket != nil {
 			_, err := c.Conn.WriteToUDP(c.LastReplyPacket, c.RemoteAddr)
 			if err != nil {
 				Log.Println("Writing packet failed due to", err)
-			} else {
-                Log.Println("Successfully sent packet.")
-            }
-		} else {
-            Log.Println("No packet to send.")
-        }
+			}
+		}
 
-		// Check if we still want to live.
-		if c.Handler == nil || c.Handler.WantsToDie() {
+        // Terminate the connection if the packet handler is done with it (normally or abnormally),
+        // or if we're over our retry limit.
+		if c.Handler == nil || c.Handler.WantsToDie() || retries > c.MaxRetries {
 			return
 		}
 
-		c.Conn.SetReadDeadline(time.Now().Add(3 * time.Second))
-		bytesRead, clientAddr, err := c.Conn.ReadFromUDP(buffer)
+        data, err := c.TryRead()
 
+        // Immediately terminate the connection
+        if err != nil {
+            Log.Println("Error: ", err)
+            return
+        }
 
-		// If we have a new packet, send it to the handler for processing.
-		if err == nil {
-            // Ignore requests sent to this port by other TID's.
-            if !clientAddr.IP.Equal(c.RemoteAddr.IP) || clientAddr.Port != c.RemoteAddr.Port {
-                continue
-            }
-
-			data := buffer[:bytesRead]
-			c.LastReplyPacket = ProcessPacket(c.Handler, data)
-		} else {
-			Log.Println("Error: ", err)
-			opError, isOpError := err.(*net.OpError)
-			if !isOpError || !opError.Timeout() {
-				return
-			}
-		}
+        if data != nil {
+            c.LastReplyPacket = ProcessPacket(c.Handler, data)
+        }
 	}
 }
 
-func MakeConnection(raddr *net.UDPAddr, firstPacket []byte, fs *FileSystem) (*Connection, error) {
+// Tries to read a packet, timing out after a while.
+// Nil is returned if there aren't bytes available.
+func (c *Connection) TryRead() ([]byte, error) {
+	buffer := make([]byte, maxPacketSize)
+
+    // Make the read attempt time out after a while so we can retry our send.
+    c.Conn.SetReadDeadline(time.Now().Add(c.Timeout))
+    bytesRead, clientAddr, err := c.Conn.ReadFromUDP(buffer)
+
+    if err != nil {
+        opError, isOpError := err.(*net.OpError)
+        if isOpError && opError.Timeout() {
+            return nil, nil
+        }
+        return nil, err
+    }
+
+    // Ignore requests sent to this port by other TID's.
+    if !clientAddr.IP.Equal(c.RemoteAddr.IP) || clientAddr.Port != c.RemoteAddr.Port {
+        return nil, nil
+    }
+
+    return buffer[:bytesRead], nil
+}
+
+func MakeConnection(host string, raddr *net.UDPAddr, firstPacket []byte, fs *FileSystem) (*Connection, error) {
 	c := new(Connection)
 
-	// A requesting host chooses its source TID as described above, and sends
-	// its initial request to the known TID 69 decimal (105 octal) on the
-	// serving host.  The response to the request, under normal operation,
-	// uses a TID chosen by the server as its source TID and the TID chosen
-	// for the previous message by the requestor as its destination TID.
-
-	// Choose a TID for the server for this connection.
+	// Create a UDP listener on a random port to serve as our end of the connection.
 	laddr := net.UDPAddr{
-		Port: 0, // The OS will give us a port from the ephemeral pool.
-		IP:   net.ParseIP("127.0.0.1"),
+		Port: 0, // The OS will give us a random port from the ephemeral pool.
+		IP:   net.ParseIP(host),
 	}
 
 	c.RemoteAddr = raddr
 
-	// Last reply packet we have for the remote host.
 	conn, err := net.ListenUDP("udp", &laddr)
 	if err != nil {
 		return nil, err
 	}
 	c.Conn = conn
 
-	// Create an RRQ or WRQ handler as appropriate.
-	switch ConvertToUInt16(firstPacket[:2]) {
-	case PKT_RRQ:
-		c.Handler = MakeReadSession(fs)
-	case PKT_WRQ:
-		c.Handler = MakeWriteSession(fs)
-	default:
+    handler, err := MakeHandler(firstPacket, fs)
+
+    if err != nil {
 		// No way to handle this packet, but we can send an error to
 		// the remote host.
 		c.LastReplyPacket = MarshalPacket(
 			&ErrorPacket{
 				ERR_ILLEGAL_OPERATION,
-				"Session must start with RRQ or RWQ",
+				err.Error(),
 			})
-	}
+	} else {
+        c.Handler = handler
+    }
 
     if c.Handler != nil {
         // Handle the first packet of information.
         c.LastReplyPacket = ProcessPacket(c.Handler, firstPacket)
     }
 
+    // Todo: make configurable.
+    c.Timeout = 3 * time.Second
+    c.MaxRetries = 3
+
 	return c, nil
 }
 
-// Listens on the introduction port (i.e. port 69.)
-func Listen(listener UDPListener, host string, port int, fs *FileSystem) {
+// Creates an RRQ or WRQ handler as appropriate, to handle the packet.
+func MakeHandler(packet []byte, fs *FileSystem) (PacketHandler, error) {
+    if len(packet) < 2 {
+        return nil, fmt.Errorf("Packet too short")
+    }
+
+    opcode := ConvertToUInt16(packet[:2])
+
+	switch opcode {
+	case PKT_RRQ:
+		return MakeReadSession(fs), nil
+	case PKT_WRQ:
+		return MakeWriteSession(fs), nil
+	default:
+        return nil, fmt.Errorf("Session must start with RRQ or RWQ")
+    }
+}
+
+// Listens indefinitely on the introduction port (i.e. port 69.)
+// When a packet is received, a goroutine for the new connection is spun up and the
+// payload of the packet is passed on to it.
+func Listen(host string, port int, fs *FileSystem) {
 	addr := net.UDPAddr{
 		Port: port,
 		IP:   net.ParseIP(host),
 	}
 
-	conn, err := listener.ListenUDP("udp", &addr)
+	conn, err := net.ListenUDP("udp", &addr)
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
 
-	buffer := make([]byte, 768)
+	buffer := make([]byte, maxPacketSize)
 	for {
-        Log.Println("Waiting for messages")
 		bytesRead, clientAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
 			Log.Println("Got error listening", err)
@@ -147,9 +166,7 @@ func Listen(listener UDPListener, host string, port int, fs *FileSystem) {
 		data := make([]byte, bytesRead)
 		copy(data, buffer[:bytesRead])
 
-		Log.Println("Created connection for remote host", clientAddr)
-
-		c, err := MakeConnection(clientAddr, data, fs)
+		c, err := MakeConnection(host, clientAddr, data, fs)
 		if err == nil {
 			go c.Listen()
 		} else {

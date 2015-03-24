@@ -23,7 +23,6 @@ func (t *TestClient) VerifyReceived(expected []byte) {
 }
 
 func (t *TestClient) AwaitReceive() []byte {
-    fmt.Println("Waiting.")
     buf := make([]byte, 768)
     bytesRead, replyAddr, err := t.conn.ReadFromUDP(buf)
     if err != nil {
@@ -66,7 +65,7 @@ func MakeTestClient(raddr *net.UDPAddr) *TestClient {
 func TestListen(t *testing.T) {
     fs := MakeFileSystem()
 
-    go Listen(NetUDPListener{}, "127.0.0.1", 11235, fs)
+    go Listen("127.0.0.1", 11235, fs)
 
     serverAddr := net.UDPAddr{
         IP: net.ParseIP("127.0.0.1"),
@@ -91,7 +90,6 @@ func ResendTimeout(client *TestClient) {
     client.SendServer([]byte{0, PKT_WRQ, 'b', 0, 'o', 'c', 't', 'a', 'l', 0})
     client.VerifyReceived([]byte{0, PKT_ACK, 0, 0})
     time.Sleep(5 * time.Second)
-    fmt.Println("Done sleeping")
     client.VerifyReceived([]byte{0, PKT_ACK, 0, 0})
 }
 
