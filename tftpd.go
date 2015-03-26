@@ -11,17 +11,23 @@ import (
 	"flag"
 	"log"
 	"os"
+    "time"
 )
 
 var Log = log.New(os.Stdout, "", log.Ltime|log.Lshortfile)
 
 func main() {
-	listenPort := flag.Int("port", 69, "port to listen on.")
-	host := flag.String("host", "127.0.0.1", "host address to listen on.")
+    var options ConnectionOptions
+
+	options.IntroductionPort = *flag.Int("port", 69, "port to listen on.")
+	options.Host = *flag.String("host", "127.0.0.1", "host address to listen on.")
+    options.MaxRetries = *flag.Int("maxretries", 3, "maximum amount of times to retry a send before terminating the connection.")
+    timeoutSeconds := *flag.Int("timeout", 3, "receive timeout in seconds before resending the last packet.")
+    options.Timeout = time.Second * time.Duration(timeoutSeconds)
 	flag.Parse()
 
-	Log.Printf("Listening on host %s, port %d\n", *host, *listenPort)
+	Log.Printf("Listening on host %s, port %d\n", options.Host, options.IntroductionPort)
 
 	fs := MakeFileSystem()
-	ListenForNewConnections(*host, *listenPort, fs)
+	ListenForNewConnections(&options, fs)
 }

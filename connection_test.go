@@ -18,24 +18,28 @@ type TestClient struct {
 }
 
 func (t *TestClient) VerifyReceived(expected []byte) {
-    reply := t.AwaitReceive()
+    reply, err := t.AwaitReceive()
+    if err != nil {
+        panic(err)
+    }
 
     if !reflect.DeepEqual(expected, reply) {
         panic(fmt.Errorf("Read unexpected reply: %v", reply))
     }
 }
 
-func (t *TestClient) AwaitReceive() []byte {
+func (t *TestClient) AwaitReceive() ([]byte, error) {
     buf := make([]byte, MaxPacketSize)
+    t.conn.SetReadDeadline(time.Now().Add(time.Second))
     bytesRead, replyAddr, err := t.conn.ReadFromUDP(buf)
     if err != nil {
-        panic(err)
+        return nil, err
     }
     if t.sessionAddr == nil {
         t.sessionAddr = replyAddr
     }
 
-    return buf[:bytesRead]
+    return buf[:bytesRead], nil
 }
 
 func (t *TestClient) SendSession(data []byte) {
@@ -68,19 +72,28 @@ func MakeTestClient(raddr *net.UDPAddr) *TestClient {
 func TestListen(t *testing.T) {
     fs := MakeFileSystem()
 
+    options := ConnectionOptions {
+        Host: "127.0.0.1",
+        IntroductionPort: 11235,
+        Timeout: 100 * time.Millisecond,
+        MaxRetries: 1,
+    }
     // Here we use a port > 1024 so we don't need su for testing.
-    go ListenForNewConnections("127.0.0.1", 11235, fs)
+    go ListenForNewConnections(&options, fs)
 
     serverAddr := net.UDPAddr{
         IP: net.ParseIP("127.0.0.1"),
         Port: 11235,
     }
 
+    // Unfortunately since ListenForNewConnections is a goroutine, in lieu of
+    // synchronisation we make due with sleep for now. Not ideal but could be changed.
     time.Sleep(1 * time.Second)
 
     BasicRequestReply(MakeTestClient(&serverAddr))
     ResendTimeout(MakeTestClient(&serverAddr))
     FirstPacketIsBad(MakeTestClient(&serverAddr))
+    MaxRetries(MakeTestClient(&serverAddr))
 }
 
 func BasicRequestReply(client *TestClient) {
@@ -93,14 +106,27 @@ func BasicRequestReply(client *TestClient) {
 func ResendTimeout(client *TestClient) {
     client.SendServer([]byte{0, PKT_WRQ, 'b', 0, 'o', 'c', 't', 'a', 'l', 0})
     client.VerifyReceived([]byte{0, PKT_ACK, 0, 0})
-    time.Sleep(5 * time.Second)
+    // Instead of replying, we wait for a retry.
     client.VerifyReceived([]byte{0, PKT_ACK, 0, 0})
 }
 
 func FirstPacketIsBad(client *TestClient) {
     client.SendServer([]byte("hi"))
-    received := client.AwaitReceive()
+    received, _ := client.AwaitReceive()
     if (ConvertToUInt16(received[:2]) != PKT_ERROR) {
         panic("Did not receive error packet in response!")
     }
+}
+
+func MaxRetries(client *TestClient) {
+    client.SendServer([]byte{0, PKT_WRQ, 'b', 0, 'o', 'c', 't', 'a', 'l', 0})
+    client.VerifyReceived([]byte{0, PKT_ACK, 0, 0})
+    client.VerifyReceived([]byte{0, PKT_ACK, 0, 0})
+    // We get two replies, since our max retry is 1, if we wait a couple seconds we can see that the session has been destroyed.
+    time.Sleep(100 * time.Millisecond)
+    _, err := client.AwaitReceive()
+    if err == nil {
+        panic(fmt.Errorf("Should have out awaiting receive, since the session was destroyed."))
+    }
+    fmt.Println(err)
 }

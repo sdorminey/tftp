@@ -1,6 +1,7 @@
 // Connection.go implements the connection layer, which is the glue between UDP and the sessions.
 // ListenForNewConnections() listens indefinitely on port 69, and when a packet comes in it spins up a
 // Connection struct to communicate with the caller.
+// The Connection talks to the caller until the session is completed, or times out.
 package main
 
 import (
@@ -8,6 +9,14 @@ import (
 	"time"
     "fmt"
 )
+
+// Options for making connections.
+type ConnectionOptions struct {
+    Host string
+    IntroductionPort int
+    MaxRetries int
+    Timeout time.Duration
+}
 
 // Represents our side of the UDP connection with the remote host.
 type Connection struct {
@@ -32,6 +41,11 @@ func (c *Connection) Listen() {
     retries := 0
 
 	for {
+        // Immediately terminate if over the retry limit.
+        if retries > c.MaxRetries {
+            return
+        }
+
 		// Transmit the first reply packet of the connection, any new reply packet
 		// or re-transmit a lost packet.
 		if c.LastReplyPacket != nil {
@@ -41,9 +55,8 @@ func (c *Connection) Listen() {
 			}
 		}
 
-        // Terminate the connection if the packet handler is done with it (normally or abnormally),
-        // or if we're over our retry limit.
-		if c.Handler == nil || c.Handler.WantsToDie() || retries > c.MaxRetries {
+        // Terminate the connection if the packet handler is done with it (normally or abnormally).
+		if c.Handler == nil || c.Handler.WantsToDie() {
 			return
 		}
 
@@ -57,6 +70,9 @@ func (c *Connection) Listen() {
 
         if data != nil {
             c.LastReplyPacket = ProcessPacket(c.Handler, data)
+        } else {
+            // We timed out, so up the retry counter.
+            retries++
         }
 	}
 }
@@ -88,13 +104,13 @@ func (c *Connection) TryRead() ([]byte, error) {
 }
 
 // Creates a connection that will serve as our side of things.
-func MakeConnection(host string, raddr *net.UDPAddr, firstPacket []byte, fs *FileSystem) (*Connection, error) {
+func MakeConnection(options *ConnectionOptions, raddr *net.UDPAddr, firstPacket []byte, fs *FileSystem) (*Connection, error) {
 	c := new(Connection)
 
 	// Create a UDP listener on a random port to serve as our end of the connection.
 	laddr := net.UDPAddr{
 		Port: 0, // The OS will give us a random port from the ephemeral pool.
-		IP:   net.ParseIP(host),
+		IP:   net.ParseIP(options.Host),
 	}
 
 	c.RemoteAddr = raddr
@@ -125,8 +141,8 @@ func MakeConnection(host string, raddr *net.UDPAddr, firstPacket []byte, fs *Fil
     }
 
     // Todo: make configurable.
-    c.Timeout = 3 * time.Second
-    c.MaxRetries = 3
+    c.Timeout = options.Timeout
+    c.MaxRetries = options.MaxRetries
 
 	return c, nil
 }
@@ -154,10 +170,10 @@ func MakeHandler(packet []byte, fs *FileSystem) (PacketHandler, error) {
 // Listens indefinitely on the introduction port (i.e. port 69.)
 // When a packet is received, a goroutine for the new connection is spun up and the
 // payload of the packet is passed on to it.
-func ListenForNewConnections(host string, port int, fs *FileSystem) {
+func ListenForNewConnections(options *ConnectionOptions, fs *FileSystem) {
 	addr := net.UDPAddr{
-		Port: port,
-		IP:   net.ParseIP(host),
+		Port: options.IntroductionPort,
+		IP:   net.ParseIP(options.Host),
 	}
 
 	conn, err := net.ListenUDP("udp", &addr)
@@ -180,7 +196,7 @@ func ListenForNewConnections(host string, port int, fs *FileSystem) {
 
         // Now that somebody contacted us, go spin up a Connection and hand the packet we
         // received over to it for processing.
-		c, err := MakeConnection(host, clientAddr, data, fs)
+		c, err := MakeConnection(options, clientAddr, data, fs)
 		if err == nil {
 			go c.Listen()
 		} else {
