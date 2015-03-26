@@ -1,15 +1,20 @@
-// Keeps track of sessions.
-// A session is created by a RRQ or a WRQ packet.
-
+// Session.go defines ReadSession and WriteSession, as well as methods for dispatching
+// packets to sessions.
 package main
 
 import "fmt"
 
+// Sessions stay alive as long as the connection hasn't completed or terminated abnormally.
 type SessionKiller interface {
-	WantsToDie() bool // Grim!
+    // Serves as a signal to the connection layer to terminate the connection.
+	WantsToDie() bool
+    // Forces the session to signal its termination.
 	MakeWantToDie()
 }
 
+// This interface bridges the connection layer with the session layer.
+// Each method accepts one packet type, and returns one packet.
+// In case of normal termination, or if an ERROR packet is received, nil is returned instead.
 type PacketHandler interface {
 	ProcessRead(p *ReadRequestPacket) Packet
 	ProcessWrite(p *WriteRequestPacket) Packet
@@ -19,6 +24,9 @@ type PacketHandler interface {
 	SessionKiller
 }
 
+// A session contains the state of a connection.
+// There are two (embedded) types of Sessions: ReadSession (for RRQ) and WriteSession (for WRQ.)
+// The PacketHandler interface methods mutate the session's state, and return packets to be delivered to the remote host.
 type Session struct {
 	ShouldDie bool
 	Fs        *FileSystem
@@ -32,8 +40,12 @@ func (s *Session) MakeWantToDie() {
 	s.ShouldDie = true
 }
 
-// Write Session (WRQ):
+func (s *Session) ProcessError(packet *ErrorPacket) Packet {
+	s.ShouldDie = true
+	return nil
+}
 
+// Write Session (WRQ)
 type WriteSession struct {
 	Session
 	Writer *File
@@ -71,7 +83,10 @@ func (s *WriteSession) ProcessData(packet *DataPacket) Packet {
 
 	s.Writer.Append(packet.Data)
 
-	if len(packet.Data) < 512 {
+    // If a DATA packet is less than the maximum length, then it must be the last packet.
+	if len(packet.Data) < FullDataPayloadLength {
+        // We may fail to commit if another write session won a race to write the same file.
+        // But whether successful or unsuccessful, we should die now.
         err := s.Fs.Commit(s.Writer)
 		s.ShouldDie = true
         if err != nil {
@@ -86,13 +101,7 @@ func (s *WriteSession) ProcessAck(packet *AckPacket) Packet {
 	return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Bad packet")
 }
 
-func (s *WriteSession) ProcessError(packet *ErrorPacket) Packet {
-	s.ShouldDie = true
-	return nil
-}
-
-// Read Session (RRQ):
-
+// Read Session (RRQ)
 type ReadSession struct {
 	Session
 	Reader *FileReader
@@ -126,6 +135,7 @@ func (s *ReadSession) ProcessAck(packet *AckPacket) Packet {
         return nil
     }
 
+    // Due to lock-step, this condition is impossible if the remote host is following the protocol.
     if packet.Block > s.Reader.Block {
         return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Out of order")
     }
@@ -136,14 +146,10 @@ func (s *ReadSession) ProcessAck(packet *AckPacket) Packet {
         s.ShouldDie = true
         return nil
     }
+
     s.Reader.AdvanceBlock()
 
 	return MakeDataReply(s)
-}
-
-func (s *ReadSession) ProcessError(packet *ErrorPacket) Packet {
-	s.ShouldDie = true
-	return nil
 }
 
 func MakeDataReply(s *ReadSession) Packet {
@@ -154,7 +160,7 @@ func MakeErrorReply(errCode uint16, msg string) Packet {
 	return &ErrorPacket{errCode, msg}
 }
 
-// Dispatch
+// Dispatch methods:
 
 func DispatchInner(s PacketHandler, packet Packet) Packet {
 	switch p := packet.(type) {
@@ -173,6 +179,7 @@ func DispatchInner(s PacketHandler, packet Packet) Packet {
 	}
 }
 
+// Given a packet, calls the appropriate method on the PacketHandler and returns the reply.
 func Dispatch(s PacketHandler, packet Packet) Packet {
 	var reply Packet
 
@@ -191,14 +198,13 @@ func Dispatch(s PacketHandler, packet Packet) Packet {
     return reply
 }
 
+// Given raw request packet data, returns raw reply data (or nil if no response is given.)
 func ProcessPacket(s PacketHandler, requestPacket []byte) (marshalled []byte) {
-	var reply Packet
-
 	unmarshalled, _ := UnmarshalPacket(requestPacket)
 
     Log.Println("Received", unmarshalled)
 
-    reply = Dispatch(s, unmarshalled)
+    reply := Dispatch(s, unmarshalled)
 
 	Log.Println("Sent", reply)
 

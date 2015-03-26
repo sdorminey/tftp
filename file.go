@@ -1,3 +1,6 @@
+// File.go defines the "file system."
+// Files are simple linked lists of byte arrays - this keeps the implementation simple and lets the files
+// scale up without much performance penalty.
 package main
 
 import (
@@ -5,10 +8,10 @@ import (
     "sync"
 )
 
-// Accesses files.
+// Provides file creation and access.
 type FileSystem struct {
 	Files map[string]*File
-    sync.Mutex
+    sync.Mutex // Guards every file creation or access. There should not be much contention.
 }
 
 func MakeFileSystem() *FileSystem {
@@ -42,6 +45,7 @@ func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
 	}, nil
 }
 
+// Commits a file to the filesystem. The file must never be modified after this call is made.
 func (f *FileSystem) Commit(file *File) *ErrorPacket {
     f.Lock()
     defer f.Unlock()
@@ -55,6 +59,7 @@ func (f *FileSystem) Commit(file *File) *ErrorPacket {
     return nil
 }
 
+// Keeps track of the current block pointer and lets the reader advance forward.
 type FileReader struct {
 	Block   uint16
 	Current *list.Element
@@ -74,9 +79,6 @@ func (r *FileReader) AtEnd() bool {
 	return r.Current.Next() == nil
 }
 
-// Files are linked lists of byte arrays.
-// This design should work well for TFTP, because all writes are appends and all reads are sequential.
-// If needed, we can make each page a multiple of the packet byte length.
 type File struct {
 	Filename string
 

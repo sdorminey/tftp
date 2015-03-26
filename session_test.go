@@ -1,3 +1,5 @@
+// Tests simple and complex scenarios for the sessions.
+
 package main
 
 import (
@@ -9,7 +11,7 @@ type TestHarness struct {
 	t *testing.T
 }
 
-func (h *TestHarness) Verify (session PacketHandler, request, expectedReply Packet) {
+func (h *TestHarness) Verify(session PacketHandler, request, expectedReply Packet) {
     h.t.Log("Request:", request, "expected reply:", expectedReply)
     if session.WantsToDie() {
         h.t.Fatal("Session wanted to die")
@@ -28,6 +30,7 @@ func (h *TestHarness) VerifyDead(session PacketHandler) {
     }
 }
 
+// Happy-path test.
 func TestSimpleReadWriteSession(t *testing.T) {
 	h := TestHarness{t}
 	fs := MakeFileSystem()

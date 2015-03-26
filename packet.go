@@ -1,4 +1,4 @@
-// Formats byte arrays into packets and vice-versa.
+// Packet.go defines the data structures of the TFTP protocol.
 package main
 
 import "fmt"
@@ -31,17 +31,17 @@ const (
 	ERR_NO_SUCH_USER        = iota
 )
 
-type PacketWriter interface {
-	Marshal() []byte
-}
+// Maximum size of a DATA packet payload. If a packet is received with len < 512,
+// then that is the last data packet.
+const FullDataPayloadLength = 512
 
-type PacketReader interface {
-	Unmarshal(data []byte) error
-}
+// Largest byte array length possible for any packet.
+const MaxPacketSize = FullDataPayloadLength + 4
 
+// Provides methods for marshalling and unmarshalling between typed packets and byte arrays.
 type Packet interface {
-	PacketReader
-	PacketWriter
+	Unmarshal(data []byte) error
+	Marshal() []byte
     GetOpcode() uint16
 }
 
@@ -143,7 +143,7 @@ func (p *DataPacket) Unmarshal(data []byte) error {
 // Error Packet
 func (p *ErrorPacket) Marshal() []byte {
 	result := make([]byte, 2+1+len(p.ErrMsg))
-	copy(result[0:2], ConvertFromUInt16(p.ErrorCode))
+	copy(result[:2], ConvertFromUInt16(p.ErrorCode))
 	copy(result[2:], []byte(p.ErrMsg[:]))
 	return result
 }
@@ -179,7 +179,8 @@ func (p *AckPacket) Unmarshal(data []byte) error {
 	return nil
 }
 
-// Factory methods
+// Marshalling methods:
+
 var packetTypes = map[uint16]func() Packet{
 	PKT_RRQ:   func() Packet { return new(ReadRequestPacket) },
 	PKT_WRQ:   func() Packet { return new(WriteRequestPacket) },
@@ -206,19 +207,20 @@ func UnmarshalPacket(data []byte) (Packet, error) {
 }
 
 func MarshalPacket(packet Packet) []byte {
-	data := make([]byte, 768)
+	data := make([]byte, MaxPacketSize)
 	marshalled := packet.Marshal()
 	copy(data[2:], marshalled)
-	copy(data[0:2], ConvertFromUInt16(packet.GetOpcode()))
+	copy(data[:2], ConvertFromUInt16(packet.GetOpcode()))
 
 	return data[:2+len(marshalled)]
 }
 
 // Conversion helper methods:
+
 func ExtractNullTerminatedString(data []byte) (string, error) {
 	for index, value := range data {
 		if value == 0 {
-			return string(data[0:index]), nil
+			return string(data[:index]), nil
 		}
 	}
 

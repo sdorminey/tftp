@@ -1,3 +1,6 @@
+// Connection.go implements the connection layer, which is the glue between UDP and the sessions.
+// ListenForNewConnections() listens indefinitely on port 69, and when a packet comes in it spins up a
+// Connection struct to communicate with the caller.
 package main
 
 import (
@@ -6,6 +9,7 @@ import (
     "fmt"
 )
 
+// Represents our side of the UDP connection with the remote host.
 type Connection struct {
 	LastReplyPacket []byte
 	Conn            *net.UDPConn
@@ -15,9 +19,13 @@ type Connection struct {
     Timeout         time.Duration
 }
 
-var maxPacketSize = 516
-
 // Listens for packets for the lifetime of the connection.
+// - Receives packets from the remote host, and dispatches them to the session backing the connection
+//   to get a reply.
+// - Sends replies back to the remote host. If we haven't heard from the remote host and time out,
+//   we assume our reply got lost and re-send.
+// - Once the connection is done, due to success, error or timing out too much, we return and the connection
+//   is destroyed.
 func (c *Connection) Listen() {
 	defer c.Conn.Close()
 
@@ -56,7 +64,7 @@ func (c *Connection) Listen() {
 // Tries to read a packet, timing out after a while.
 // Nil is returned if there aren't bytes available.
 func (c *Connection) TryRead() ([]byte, error) {
-	buffer := make([]byte, maxPacketSize)
+	buffer := make([]byte, MaxPacketSize)
 
     // Make the read attempt time out after a while so we can retry our send.
     c.Conn.SetReadDeadline(time.Now().Add(c.Timeout))
@@ -71,6 +79,7 @@ func (c *Connection) TryRead() ([]byte, error) {
     }
 
     // Ignore requests sent to this port by other TID's.
+    // Other hosts should not be able to make our connection fail.
     if !clientAddr.IP.Equal(c.RemoteAddr.IP) || clientAddr.Port != c.RemoteAddr.Port {
         return nil, nil
     }
@@ -78,6 +87,7 @@ func (c *Connection) TryRead() ([]byte, error) {
     return buffer[:bytesRead], nil
 }
 
+// Creates a connection that will serve as our side of things.
 func MakeConnection(host string, raddr *net.UDPAddr, firstPacket []byte, fs *FileSystem) (*Connection, error) {
 	c := new(Connection)
 
@@ -122,6 +132,8 @@ func MakeConnection(host string, raddr *net.UDPAddr, firstPacket []byte, fs *Fil
 }
 
 // Creates an RRQ or WRQ handler as appropriate, to handle the packet.
+// If the caller gave a bad opcode, we still need to spin up our Connection
+// long enough to best-effort send an error to the caller.
 func MakeHandler(packet []byte, fs *FileSystem) (PacketHandler, error) {
     if len(packet) < 2 {
         return nil, fmt.Errorf("Packet too short")
@@ -142,7 +154,7 @@ func MakeHandler(packet []byte, fs *FileSystem) (PacketHandler, error) {
 // Listens indefinitely on the introduction port (i.e. port 69.)
 // When a packet is received, a goroutine for the new connection is spun up and the
 // payload of the packet is passed on to it.
-func Listen(host string, port int, fs *FileSystem) {
+func ListenForNewConnections(host string, port int, fs *FileSystem) {
 	addr := net.UDPAddr{
 		Port: port,
 		IP:   net.ParseIP(host),
@@ -154,7 +166,7 @@ func Listen(host string, port int, fs *FileSystem) {
 	}
 	defer conn.Close()
 
-	buffer := make([]byte, maxPacketSize)
+	buffer := make([]byte, MaxPacketSize)
 	for {
 		bytesRead, clientAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
@@ -166,6 +178,8 @@ func Listen(host string, port int, fs *FileSystem) {
 		data := make([]byte, bytesRead)
 		copy(data, buffer[:bytesRead])
 
+        // Now that somebody contacted us, go spin up a Connection and hand the packet we
+        // received over to it for processing.
 		c, err := MakeConnection(host, clientAddr, data, fs)
 		if err == nil {
 			go c.Listen()

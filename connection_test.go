@@ -1,3 +1,5 @@
+// The connection layer is tested using real UDP, at the expense of some speed, to find issues with connection.go's
+// usage of the UDP library.
 package main
 
 import (
@@ -8,6 +10,7 @@ import (
     "time"
 )
 
+// Very simple UDP client for interacting with the server.
 type TestClient struct {
     conn *net.UDPConn
     sessionAddr *net.UDPAddr
@@ -23,7 +26,7 @@ func (t *TestClient) VerifyReceived(expected []byte) {
 }
 
 func (t *TestClient) AwaitReceive() []byte {
-    buf := make([]byte, 768)
+    buf := make([]byte, MaxPacketSize)
     bytesRead, replyAddr, err := t.conn.ReadFromUDP(buf)
     if err != nil {
         panic(err)
@@ -65,7 +68,8 @@ func MakeTestClient(raddr *net.UDPAddr) *TestClient {
 func TestListen(t *testing.T) {
     fs := MakeFileSystem()
 
-    go Listen("127.0.0.1", 11235, fs)
+    // Here we use a port > 1024 so we don't need su for testing.
+    go ListenForNewConnections("127.0.0.1", 11235, fs)
 
     serverAddr := net.UDPAddr{
         IP: net.ParseIP("127.0.0.1"),
