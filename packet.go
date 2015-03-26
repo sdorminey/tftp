@@ -42,7 +42,7 @@ const MaxPacketSize = FullDataPayloadLength + 4
 type Packet interface {
 	Unmarshal(data []byte) error
 	Marshal() []byte
-    GetOpcode() uint16
+	GetOpcode() uint16
 }
 
 //          2 bytes    string   1 byte     string   1 byte
@@ -90,11 +90,11 @@ type ErrorPacket struct {
 }
 
 // Opcodes
-func (p *ReadRequestPacket) GetOpcode() uint16 { return PKT_RRQ }
+func (p *ReadRequestPacket) GetOpcode() uint16  { return PKT_RRQ }
 func (p *WriteRequestPacket) GetOpcode() uint16 { return PKT_WRQ }
-func (p *DataPacket) GetOpcode() uint16 { return PKT_DATA }
-func (p *AckPacket) GetOpcode() uint16 { return PKT_ACK }
-func (p *ErrorPacket) GetOpcode() uint16 { return PKT_ERROR }
+func (p *DataPacket) GetOpcode() uint16         { return PKT_DATA }
+func (p *AckPacket) GetOpcode() uint16          { return PKT_ACK }
+func (p *ErrorPacket) GetOpcode() uint16        { return PKT_ERROR }
 
 // Request Packet
 func (p *RequestPacket) Marshal() []byte {

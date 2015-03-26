@@ -23,13 +23,13 @@ func TestPacketMarshalling(t *testing.T) {
 		},
 		{
 			[]byte{'f', 'o', 'o', 'x', 'o', 'c', 't', 'a', 'l', 0},
-            nil,
-            &ReadRequestPacket{},
+			nil,
+			&ReadRequestPacket{},
 		},
 		{
 			[]byte{'f', 'o', 'o', 0, 'o', 'c', 't', 'a', 'l'},
-            nil,
-            &ReadRequestPacket{},
+			nil,
+			&ReadRequestPacket{},
 		},
 		// Write Request
 		{
@@ -45,12 +45,12 @@ func TestPacketMarshalling(t *testing.T) {
 		},
 		{
 			[]byte{},
-            nil,
+			nil,
 			&DataPacket{},
 		},
 		{
 			[]byte{0, 1},
-            nil,
+			nil,
 			&DataPacket{},
 		},
 		// Ack
@@ -66,12 +66,12 @@ func TestPacketMarshalling(t *testing.T) {
 		},
 		{
 			[]byte{0x00, 0x01, byte('h'), byte('i')},
-            nil,
+			nil,
 			&ErrorPacket{},
 		},
 		{
 			[]byte{0, 1},
-            nil,
+			nil,
 			&ErrorPacket{},
 		},
 	}
@@ -80,29 +80,29 @@ func TestPacketMarshalling(t *testing.T) {
 		t.Logf("Executing test %d.\n", k)
 
 		unmarshalled := test.NewPacket
-        err := unmarshalled.Unmarshal(test.Data)
-        // If we gave nil as the data packet, it's because we expected the test to fail.
-        if test.DataPacket == nil {
-            if err == nil {
-                t.Fatalf("Test %d failed: Should have had error unmarshalling.", k)
-            }
-            continue
-        } else {
-            if err != nil {
-                t.Fatalf("Test %d failed: Hit error unmarshalling.", k)
-            }
-        }
+		err := unmarshalled.Unmarshal(test.Data)
+		// If we gave nil as the data packet, it's because we expected the test to fail.
+		if test.DataPacket == nil {
+			if err == nil {
+				t.Fatalf("Test %d failed: Should have had error unmarshalling.", k)
+			}
+			continue
+		} else {
+			if err != nil {
+				t.Fatalf("Test %d failed: Hit error unmarshalling.", k)
+			}
+		}
 
 		marshalled := test.DataPacket.Marshal()
 
 		t.Logf("Data: %v, Data Packet: %v, Marshalled: %v, Unmarshalled: %v", test.Data, test.DataPacket, marshalled, unmarshalled)
 
-        // Compare expected data to the actual marshalled DataPacket.
+		// Compare expected data to the actual marshalled DataPacket.
 		if !reflect.DeepEqual(test.Data, marshalled) {
 			t.Fatalf("Test %d failed: Marshalled not equal.\n", k)
 		}
 
-        // Compare unmarshalled expected data to the expected DataPacket.
+		// Compare unmarshalled expected data to the expected DataPacket.
 		if !reflect.DeepEqual(unmarshalled, test.DataPacket) {
 			t.Fatalf("Test %d failed: Unmarshalled not equal.\n", k)
 		}

@@ -5,17 +5,17 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"time"
-    "fmt"
 )
 
 // Options for making connections.
 type ConnectionOptions struct {
-    Host string
-    IntroductionPort int
-    MaxRetries int
-    Timeout time.Duration
+	Host             string
+	IntroductionPort int
+	MaxRetries       int
+	Timeout          time.Duration
 }
 
 // Represents our side of the UDP connection with the remote host.
@@ -24,8 +24,8 @@ type Connection struct {
 	Conn            *net.UDPConn
 	Handler         PacketHandler
 	RemoteAddr      *net.UDPAddr
-    MaxRetries      int
-    Timeout         time.Duration
+	MaxRetries      int
+	Timeout         time.Duration
 }
 
 // Listens for packets for the lifetime of the connection.
@@ -38,13 +38,13 @@ type Connection struct {
 func (c *Connection) Listen() {
 	defer c.Conn.Close()
 
-    retries := 0
+	retries := 0
 
 	for {
-        // Immediately terminate if over the retry limit.
-        if retries > c.MaxRetries {
-            return
-        }
+		// Immediately terminate if over the retry limit.
+		if retries > c.MaxRetries {
+			return
+		}
 
 		// Transmit the first reply packet of the connection, any new reply packet
 		// or re-transmit a lost packet.
@@ -55,25 +55,25 @@ func (c *Connection) Listen() {
 			}
 		}
 
-        // Terminate the connection if the packet handler is done with it (normally or abnormally).
+		// Terminate the connection if the packet handler is done with it (normally or abnormally).
 		if c.Handler == nil || c.Handler.WantsToDie() {
 			return
 		}
 
-        data, err := c.TryRead()
+		data, err := c.TryRead()
 
-        // Immediately terminate the connection
-        if err != nil {
-            Log.Println("Error: ", err)
-            return
-        }
+		// Immediately terminate the connection
+		if err != nil {
+			Log.Println("Error: ", err)
+			return
+		}
 
-        if data != nil {
-            c.LastReplyPacket = ProcessPacket(c.Handler, data)
-        } else {
-            // We timed out, so up the retry counter.
-            retries++
-        }
+		if data != nil {
+			c.LastReplyPacket = ProcessPacket(c.Handler, data)
+		} else {
+			// We timed out, so up the retry counter.
+			retries++
+		}
 	}
 }
 
@@ -82,25 +82,25 @@ func (c *Connection) Listen() {
 func (c *Connection) TryRead() ([]byte, error) {
 	buffer := make([]byte, MaxPacketSize)
 
-    // Make the read attempt time out after a while so we can retry our send.
-    c.Conn.SetReadDeadline(time.Now().Add(c.Timeout))
-    bytesRead, clientAddr, err := c.Conn.ReadFromUDP(buffer)
+	// Make the read attempt time out after a while so we can retry our send.
+	c.Conn.SetReadDeadline(time.Now().Add(c.Timeout))
+	bytesRead, clientAddr, err := c.Conn.ReadFromUDP(buffer)
 
-    if err != nil {
-        opError, isOpError := err.(*net.OpError)
-        if isOpError && opError.Timeout() {
-            return nil, nil
-        }
-        return nil, err
-    }
+	if err != nil {
+		opError, isOpError := err.(*net.OpError)
+		if isOpError && opError.Timeout() {
+			return nil, nil
+		}
+		return nil, err
+	}
 
-    // Ignore requests sent to this port by other TID's.
-    // Other hosts should not be able to make our connection fail.
-    if !clientAddr.IP.Equal(c.RemoteAddr.IP) || clientAddr.Port != c.RemoteAddr.Port {
-        return nil, nil
-    }
+	// Ignore requests sent to this port by other TID's.
+	// Other hosts should not be able to make our connection fail.
+	if !clientAddr.IP.Equal(c.RemoteAddr.IP) || clientAddr.Port != c.RemoteAddr.Port {
+		return nil, nil
+	}
 
-    return buffer[:bytesRead], nil
+	return buffer[:bytesRead], nil
 }
 
 // Creates a connection that will serve as our side of things.
@@ -121,9 +121,9 @@ func MakeConnection(options *ConnectionOptions, raddr *net.UDPAddr, firstPacket 
 	}
 	c.Conn = conn
 
-    handler, err := MakeHandler(firstPacket, fs)
+	handler, err := MakeHandler(firstPacket, fs)
 
-    if err != nil {
+	if err != nil {
 		// No way to handle this packet, but we can send an error to
 		// the remote host.
 		c.LastReplyPacket = MarshalPacket(
@@ -132,17 +132,17 @@ func MakeConnection(options *ConnectionOptions, raddr *net.UDPAddr, firstPacket 
 				err.Error(),
 			})
 	} else {
-        c.Handler = handler
-    }
+		c.Handler = handler
+	}
 
-    if c.Handler != nil {
-        // Handle the first packet of information.
-        c.LastReplyPacket = ProcessPacket(c.Handler, firstPacket)
-    }
+	if c.Handler != nil {
+		// Handle the first packet of information.
+		c.LastReplyPacket = ProcessPacket(c.Handler, firstPacket)
+	}
 
-    // Todo: make configurable.
-    c.Timeout = options.Timeout
-    c.MaxRetries = options.MaxRetries
+	// Todo: make configurable.
+	c.Timeout = options.Timeout
+	c.MaxRetries = options.MaxRetries
 
 	return c, nil
 }
@@ -151,11 +151,11 @@ func MakeConnection(options *ConnectionOptions, raddr *net.UDPAddr, firstPacket 
 // If the caller gave a bad opcode, we still need to spin up our Connection
 // long enough to best-effort send an error to the caller.
 func MakeHandler(packet []byte, fs *FileSystem) (PacketHandler, error) {
-    if len(packet) < 2 {
-        return nil, fmt.Errorf("Packet too short")
-    }
+	if len(packet) < 2 {
+		return nil, fmt.Errorf("Packet too short")
+	}
 
-    opcode := ConvertToUInt16(packet[:2])
+	opcode := ConvertToUInt16(packet[:2])
 
 	switch opcode {
 	case PKT_RRQ:
@@ -163,8 +163,8 @@ func MakeHandler(packet []byte, fs *FileSystem) (PacketHandler, error) {
 	case PKT_WRQ:
 		return MakeWriteSession(fs), nil
 	default:
-        return nil, fmt.Errorf("Session must start with RRQ or RWQ")
-    }
+		return nil, fmt.Errorf("Session must start with RRQ or RWQ")
+	}
 }
 
 // Listens indefinitely on the introduction port (i.e. port 69.)
@@ -194,8 +194,8 @@ func ListenForNewConnections(options *ConnectionOptions, fs *FileSystem) {
 		data := make([]byte, bytesRead)
 		copy(data, buffer[:bytesRead])
 
-        // Now that somebody contacted us, go spin up a Connection and hand the packet we
-        // received over to it for processing.
+		// Now that somebody contacted us, go spin up a Connection and hand the packet we
+		// received over to it for processing.
 		c, err := MakeConnection(options, clientAddr, data, fs)
 		if err == nil {
 			go c.Listen()

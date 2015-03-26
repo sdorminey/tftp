@@ -5,36 +5,36 @@ package main
 
 import (
 	"container/list"
-    "sync"
+	"sync"
 )
 
 // Provides file creation and access.
 type FileSystem struct {
-	Files map[string]*File
-    sync.Mutex // Guards every file creation or access. There should not be much contention.
+	Files      map[string]*File
+	sync.Mutex // Guards every file creation or access. There should not be much contention.
 }
 
 func MakeFileSystem() *FileSystem {
-    return &FileSystem{Files: make(map[string]*File)}
+	return &FileSystem{Files: make(map[string]*File)}
 }
 
 // Creates a file. Note: calling this method will not prevent other people from calling
 // CreateFile() with the same filename. However, only one file with a name will be committed.
 func (f *FileSystem) CreateFile(filename string) (*File, *ErrorPacket) {
-    f.Lock()
-    defer f.Unlock()
+	f.Lock()
+	defer f.Unlock()
 
 	if f.Files[filename] != nil {
 		return nil, &ErrorPacket{ERR_FILE_ALREADY_EXISTS, ""}
 	}
 
-    Log.Println("Began writing file", filename)
+	Log.Println("Began writing file", filename)
 	return &File{Filename: filename}, nil
 }
 
 func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
-    f.Lock()
-    defer f.Unlock()
+	f.Lock()
+	defer f.Unlock()
 
 	if f.Files[filename] == nil {
 		return nil, &ErrorPacket{ERR_FILE_NOT_FOUND, ""}
@@ -50,16 +50,16 @@ func (f *FileSystem) GetReader(filename string) (*FileReader, *ErrorPacket) {
 
 // Commits a file to the filesystem. The file must never be modified after this call is made.
 func (f *FileSystem) Commit(file *File) *ErrorPacket {
-    f.Lock()
-    defer f.Unlock()
+	f.Lock()
+	defer f.Unlock()
 
-    if f.Files[file.Filename] != nil {
-        return &ErrorPacket{ERR_FILE_ALREADY_EXISTS, ""}
-    }
+	if f.Files[file.Filename] != nil {
+		return &ErrorPacket{ERR_FILE_ALREADY_EXISTS, ""}
+	}
 
 	f.Files[file.Filename] = file
 	Log.Println("Added file", file.Filename)
-    return nil
+	return nil
 }
 
 // Keeps track of the current block pointer and lets the reader advance forward.

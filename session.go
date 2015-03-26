@@ -6,9 +6,9 @@ import "fmt"
 
 // Sessions stay alive as long as the connection hasn't completed or terminated abnormally.
 type SessionKiller interface {
-    // Serves as a signal to the connection layer to terminate the connection.
+	// Serves as a signal to the connection layer to terminate the connection.
 	WantsToDie() bool
-    // Forces the session to signal its termination.
+	// Forces the session to signal its termination.
 	MakeWantToDie()
 }
 
@@ -69,29 +69,29 @@ func (s *WriteSession) ProcessWrite(packet *WriteRequestPacket) Packet {
 }
 
 func (s *WriteSession) ProcessData(packet *DataPacket) Packet {
-    // Ignore duplicated DATA packets.
-    if s.Writer.GetNumBlocks() >= packet.Block {
-        return nil
-    }
+	// Ignore duplicated DATA packets.
+	if s.Writer.GetNumBlocks() >= packet.Block {
+		return nil
+	}
 
-    // Packets from the future cannot be explained except with a time machine,
-    // since acknowledgement is lock-step and they should have gotten an ACK for block b before
-    // sending DATA for block n > b.
-    if s.Writer.GetNumBlocks() != packet.Block - 1 {
-        return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Out of order")
-    }
+	// Packets from the future cannot be explained except with a time machine,
+	// since acknowledgement is lock-step and they should have gotten an ACK for block b before
+	// sending DATA for block n > b.
+	if s.Writer.GetNumBlocks() != packet.Block-1 {
+		return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Out of order")
+	}
 
 	s.Writer.Append(packet.Data)
 
-    // If a DATA packet is less than the maximum length, then it must be the last packet.
+	// If a DATA packet is less than the maximum length, then it must be the last packet.
 	if len(packet.Data) < FullDataPayloadLength {
-        // We may fail to commit if another write session won a race to write the same file.
-        // But whether successful or unsuccessful, we should die now.
-        err := s.Fs.Commit(s.Writer)
+		// We may fail to commit if another write session won a race to write the same file.
+		// But whether successful or unsuccessful, we should die now.
+		err := s.Fs.Commit(s.Writer)
 		s.ShouldDie = true
-        if err != nil {
-            return err
-        }
+		if err != nil {
+			return err
+		}
 	}
 
 	return &AckPacket{s.Writer.GetNumBlocks()}
@@ -130,24 +130,24 @@ func (s *ReadSession) ProcessData(packet *DataPacket) Packet {
 }
 
 func (s *ReadSession) ProcessAck(packet *AckPacket) Packet {
-    // Duplicate or outdated ACKs can be explained by the network, and shouldn't cause error.
-    if packet.Block < s.Reader.Block {
-        return nil
-    }
+	// Duplicate or outdated ACKs can be explained by the network, and shouldn't cause error.
+	if packet.Block < s.Reader.Block {
+		return nil
+	}
 
-    // Due to lock-step, this condition is impossible if the remote host is following the protocol.
-    if packet.Block > s.Reader.Block {
-        return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Out of order")
-    }
+	// Due to lock-step, this condition is impossible if the remote host is following the protocol.
+	if packet.Block > s.Reader.Block {
+		return MakeErrorReply(ERR_ILLEGAL_OPERATION, "Out of order")
+	}
 
-    // Client has acknowledged the last block with an ACK.
-    // Now we can die happily.
-    if s.Reader.AtEnd() {
-        s.ShouldDie = true
-        return nil
-    }
+	// Client has acknowledged the last block with an ACK.
+	// Now we can die happily.
+	if s.Reader.AtEnd() {
+		s.ShouldDie = true
+		return nil
+	}
 
-    s.Reader.AdvanceBlock()
+	s.Reader.AdvanceBlock()
 
 	return MakeDataReply(s)
 }
@@ -175,7 +175,7 @@ func DispatchInner(s PacketHandler, packet Packet) Packet {
 	case *ErrorPacket:
 		return s.ProcessError(p)
 	default:
-        panic(fmt.Errorf("Unknown packet type."))
+		panic(fmt.Errorf("Unknown packet type."))
 	}
 }
 
@@ -183,11 +183,11 @@ func DispatchInner(s PacketHandler, packet Packet) Packet {
 func Dispatch(s PacketHandler, packet Packet) Packet {
 	var reply Packet
 
-    if packet == nil {
+	if packet == nil {
 		reply = MakeErrorReply(ERR_ILLEGAL_OPERATION, "Error parsing packet")
-    } else {
-        reply = DispatchInner(s, packet)
-    }
+	} else {
+		reply = DispatchInner(s, packet)
+	}
 
 	// All ERROR responses destroy the session.
 	_, isError := reply.(*ErrorPacket)
@@ -195,22 +195,22 @@ func Dispatch(s PacketHandler, packet Packet) Packet {
 		s.MakeWantToDie()
 	}
 
-    return reply
+	return reply
 }
 
 // Given raw request packet data, returns raw reply data (or nil if no response is given.)
 func ProcessPacket(s PacketHandler, requestPacket []byte) (marshalled []byte) {
 	unmarshalled, _ := UnmarshalPacket(requestPacket)
 
-    Log.Println("Received", unmarshalled)
+	Log.Println("Received", unmarshalled)
 
-    reply := Dispatch(s, unmarshalled)
+	reply := Dispatch(s, unmarshalled)
 
 	Log.Println("Sent", reply)
 
-    if reply != nil {
-        marshalled = MarshalPacket(reply)
-    }
+	if reply != nil {
+		marshalled = MarshalPacket(reply)
+	}
 
 	return marshalled
 }
