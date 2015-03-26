@@ -18,6 +18,8 @@ func MakeFileSystem() *FileSystem {
     return &FileSystem{Files: make(map[string]*File)}
 }
 
+// Creates a file. Note: calling this method will not prevent other people from calling
+// CreateFile() with the same filename. However, only one file with a name will be committed.
 func (f *FileSystem) CreateFile(filename string) (*File, *ErrorPacket) {
     f.Lock()
     defer f.Unlock()
@@ -26,6 +28,7 @@ func (f *FileSystem) CreateFile(filename string) (*File, *ErrorPacket) {
 		return nil, &ErrorPacket{ERR_FILE_ALREADY_EXISTS, ""}
 	}
 
+    Log.Println("Began writing file", filename)
 	return &File{Filename: filename}, nil
 }
 

@@ -96,6 +96,7 @@ func TestListen(t *testing.T) {
     MaxRetries(MakeTestClient(&serverAddr))
 }
 
+// This should serve as a basic end-to-end systems test to validate that the layers are wired up correctly.
 func BasicRequestReply(client *TestClient) {
     client.SendServer([]byte{0, PKT_WRQ, 'a', 0, 'o', 'c', 't', 'a', 'l', 0})
     client.VerifyReceived([]byte{0, PKT_ACK, 0, 0})
@@ -122,8 +123,9 @@ func MaxRetries(client *TestClient) {
     client.SendServer([]byte{0, PKT_WRQ, 'b', 0, 'o', 'c', 't', 'a', 'l', 0})
     client.VerifyReceived([]byte{0, PKT_ACK, 0, 0})
     client.VerifyReceived([]byte{0, PKT_ACK, 0, 0})
-    // We get two replies, since our max retry is 1, if we wait a couple seconds we can see that the session has been destroyed.
+    // If we wait after two replies.
     time.Sleep(100 * time.Millisecond)
+    // At this point our read session should time out since the sesion should have been destroyed.
     _, err := client.AwaitReceive()
     if err == nil {
         panic(fmt.Errorf("Should have out awaiting receive, since the session was destroyed."))
